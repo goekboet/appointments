@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Appointments.Features;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -19,15 +20,6 @@ namespace Appointments.Records
         }
     }
 
-    public class Schedule
-    {
-        public Guid PrincipalId { get; set; }
-        public string Name { get; set; }
-
-        public List<Appointment> Appointments { get; set; } =
-            new List<Appointment>();
-    }
-
     public sealed class SchedulesTable : IEntityTypeConfiguration<Schedule>
     {
         public void Configure(EntityTypeBuilder<Schedule> builder)
@@ -40,24 +32,12 @@ namespace Appointments.Records
 
             builder.HasMany(x => x.Appointments)
                 .WithOne()
-                .HasForeignKey(x => x.ScheuleId );
+                .HasForeignKey("ScheduleId");
 
             builder.Property(x => x.Name)
                 .IsRequired()
                 .HasMaxLength(256);
-
-            
         }
-    }
-
-    public class Appointment
-    {
-        public Guid ScheuleId { get;set;}
-        public long Start { get; set; }
-        public int MinuteDuration { get; set; }
-
-        public List<Participant> Participants { get; set; } =
-            new List<Participant>();
     }
 
     public sealed class AppointmentTable : IEntityTypeConfiguration<Appointment>
@@ -66,21 +46,18 @@ namespace Appointments.Records
         {
             builder.ToTable("Appointment");
             builder.Property<long>("Id");
+            builder.Property<long>("ScheduleId");
 
             builder.HasKey("Id");
             builder.HasMany(x => x.Participants)
-                .WithOne()
+                .WithOne(x => x.Appointment)
                 .HasForeignKey("AppointmentId");
 
-            builder.HasAlternateKey(x => new { x.ScheuleId, x.Start });
+            builder.HasAlternateKey("ScheduleId", "Start" );
         }
     }
 
-    public class Participant 
-    {
-        public string SubjectId {get;set;}
-        public string Name { get; set; }
-    }
+   
 
     public sealed class ParticipantsTable : IEntityTypeConfiguration<Participant>
     {
