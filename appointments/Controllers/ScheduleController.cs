@@ -21,6 +21,12 @@ namespace Appointments.Controllers
                 schedule);
         }
 
+        [HttpDelete("{name}")]
+        public IActionResult DeleteSchedule()
+        {
+            return Ok();
+        }
+
         [HttpGet]
         public Json.Schedule[] ListSchedules()
         {

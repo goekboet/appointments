@@ -12,24 +12,18 @@ namespace Appointments.Controllers
     [ApiController]
     public class AppointmentController : ControllerBase
     {
+        [HttpGet]
+        public Json.ScheduledAppointments GetMyAppointments()
+        {
+            return new Json.ScheduledAppointments();
+        }
+
         [HttpPost]
         public IActionResult CreateAppointment(Json.Appointment appt)
         {
             var never = DateTimeOffset.FromUnixTimeSeconds(0);
 
-            return Created($"appointment/{never}", new Json.Appointment());
-        }
-
-        [HttpDelete]
-        public IActionResult UnAppointment(Json.Appointment appt)
-        {
-            return Ok();
-        }
-
-        [HttpGet]
-        public Json.ScheduledAppointments GetMyAppointments()
-        {
-            return new Json.ScheduledAppointments();
+            return Created($"appointment/{appt.Schedule}/{never}", new Json.Appointment());
         }
 
         [HttpGet("{schedule}/{start}")]
