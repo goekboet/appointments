@@ -17,7 +17,7 @@ namespace Appointments.Controllers
             Json.Schedule schedule)
         {
             return Created(
-                $"schedule/{schedule.Name}", 
+                $"schedule/{schedule.Name}",
                 schedule);
         }
 
