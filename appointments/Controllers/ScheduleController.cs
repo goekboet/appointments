@@ -5,9 +5,11 @@ using System.Linq;
 using System.Threading.Tasks;
 using Json = Appointments.Controllers.Models;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Appointments.Controllers
 {
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class ScheduleController : ControllerBase

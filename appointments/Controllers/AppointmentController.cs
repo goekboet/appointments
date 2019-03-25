@@ -3,15 +3,21 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Json = Appointments.Controllers.Models;
 
 namespace Appointments.Controllers
 {
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class AppointmentController : ControllerBase
     {
+        static string sub = System.Security.Claims.ClaimTypes.NameIdentifier;
+        string GetSubjectId => HttpContext.User.Claims
+            .FirstOrDefault(c => c.Type == sub).Value;
+            
         [HttpGet]
         public Json.ScheduledAppointments GetMyAppointments()
         {

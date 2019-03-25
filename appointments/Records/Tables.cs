@@ -57,8 +57,6 @@ namespace Appointments.Records
         }
     }
 
-   
-
     public sealed class ParticipantsTable : IEntityTypeConfiguration<Participant>
     {
         public void Configure(EntityTypeBuilder<Participant> builder)
@@ -66,6 +64,7 @@ namespace Appointments.Records
             builder.ToTable("Participant");
             builder.Property<long>("AppointmentId");
             builder.HasKey("AppointmentId", "SubjectId" );
+            builder.HasIndex("SubjectId");
 
             builder.Property(x => x.Name)
                 .IsRequired()
