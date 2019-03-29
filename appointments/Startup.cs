@@ -1,4 +1,5 @@
-﻿using Appointments.Records;
+﻿using Appointments.Features;
+using Appointments.Records;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -36,11 +37,10 @@ namespace Appointments
                         conf.TokenValidationParameters = DevAuth.Params;
                     });
             }
-            else
-            {
-                services.AddDbContext<DB>(opts =>
-                    opts.UseNpgsql(Configuration.GetConnectionString("PsqlFull")));
-            }
+            
+            services.AddDbContext<Pgres>(opts =>
+                    opts.UseNpgsql(Configuration.GetConnectionString("Psql")));
+            services.AddScoped<IScheduleRepository, PgresRepo>();
 
             services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_2);
         }

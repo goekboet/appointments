@@ -19,9 +19,9 @@ namespace Appointments.Controllers
             .FirstOrDefault(c => c.Type == sub).Value;
             
         [HttpGet]
-        public Json.ScheduledAppointments GetMyAppointments()
+        public IActionResult GetMyAppointments()
         {
-            return new Json.ScheduledAppointments();
+            return Ok(new object[0]);
         }
 
         [HttpPost]

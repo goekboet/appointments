@@ -7,12 +7,6 @@ namespace Appointments.Controllers.Models
         public string Name { get; set; }
     }
 
-    public class ScheduledAppointments
-    {
-        public string Schedule { get; set; }
-        public Appointment[] Appointments { get; set; } = new Appointment[0];
-    }
-
     public class Appointment
     {
         public string Schedule { get; set; }

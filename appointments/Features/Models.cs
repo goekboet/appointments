@@ -3,14 +3,7 @@ using System.Collections.Generic;
 
 namespace Appointments.Features
 {
-    public class Schedule
-    {
-        public Guid PrincipalId { get; set; }
-        public string Name { get; set; }
-
-        public List<Appointment> Appointments { get; set; } =
-            new List<Appointment>();
-    }
+    
 
     public class Appointment
     {
