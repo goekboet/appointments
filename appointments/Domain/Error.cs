@@ -1,7 +1,9 @@
 using System;
 using System.Runtime.Serialization;
 
-public class Error : Exception
+namespace Appointments.Domain
+{
+    public class Error : Exception
 {
     public Error()
     {
@@ -18,4 +20,5 @@ public class Error : Exception
     protected Error(SerializationInfo info, StreamingContext context) : base(info, context)
     {
     }
+}
 }

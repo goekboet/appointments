@@ -1,4 +1,4 @@
-using Appointments.Features;
+using Appointments.Domain;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -8,37 +8,45 @@ namespace Appointments.Records
     {
         public void Configure(EntityTypeBuilder<Schedule> builder)
         {
-            builder.ToTable("Schedule");
+            builder.HasKey(x => x.Name);
+            
+            builder.HasAlternateKey(x => x.Name);
 
-            builder.Property<long>("Id").UseNpgsqlIdentityAlwaysColumn();
-            builder.HasKey("Id");
-
-            builder.HasAlternateKey(x => new { x.PrincipalId, x.Name });
-
-            builder.HasMany(x => x.Appointments)
-                .WithOne()
-                .HasForeignKey("ScheduleId");
+            builder.Property(x => x.PrincipalId)
+                .IsRequired();
+            builder.HasIndex(x => x.PrincipalId);
 
             builder.Property(x => x.Name)
-                .IsRequired()
                 .HasMaxLength(256);
+
+            builder.HasMany(x => x.Appointments)
+                .WithOne(x => x.Schedule)
+                .HasForeignKey(x => x.ScheduleName);
         }
     }
 
-    public sealed class AppointmentTable : IEntityTypeConfiguration<Appointment>
+    public sealed class AppointmentsTable : IEntityTypeConfiguration<Appointment>
     {
         public void Configure(EntityTypeBuilder<Appointment> builder)
         {
-            builder.ToTable("Appointment");
-            builder.Property<long>("Id").UseNpgsqlIdentityAlwaysColumn();
-            builder.Property<long>("ScheduleId");
-
+            builder.Property<long>("Id")
+                .UseNpgsqlIdentityAlwaysColumn();
             builder.HasKey("Id");
+
+            builder.HasAlternateKey(x => new 
+            { 
+                x.ScheduleName, 
+                x.Start 
+            });
+            builder.HasIndex(x => x.Start);
+            
+            builder.Property(x => x.Duration)
+                .IsRequired();
+
             builder.HasMany(x => x.Participants)
                 .WithOne(x => x.Appointment)
-                .HasForeignKey("AppointmentId");
-
-            builder.HasAlternateKey("ScheduleId", "Start");
+                .HasForeignKey("AppointmentId")
+                .OnDelete(DeleteBehavior.Cascade);
         }
     }
 
@@ -48,12 +56,13 @@ namespace Appointments.Records
         {
             builder.ToTable("Participant");
             builder.Property<long>("AppointmentId");
+            
             builder.HasKey("AppointmentId", "SubjectId");
-            builder.HasIndex("SubjectId");
-
+            
             builder.Property(x => x.Name)
-                .IsRequired()
-                .HasMaxLength(256);
+                .HasMaxLength(256)
+                .IsRequired();
+            builder.HasIndex(x => x.Name);
         }
     }
 }

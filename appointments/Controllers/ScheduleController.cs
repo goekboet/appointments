@@ -4,10 +4,10 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Json = Appointments.Controllers.Models;
-using Domain = Appointments.Features;
+using Domain = Appointments.Domain;
+using Appointments.Domain;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
-using Appointments.Features;
 using Microsoft.Extensions.Logging;
 
 namespace Appointments.Controllers
@@ -36,20 +36,20 @@ namespace Appointments.Controllers
         public async Task<IActionResult> CreateSchedule(
             Json.Schedule schedule)
         {
-            try {
+            try 
+            {
                 var principalId = Guid.Parse(GetSubjectId);
-                var req = new Domain.Schedule
-                {
-                    PrincipalId = principalId,
-                    Name = schedule.Name
-                };
 
-                await _repo.Add(req);
-                _log.LogTrace($"{principalId} added schedule {schedule.Name}", req);
+                await _repo.Add(principalId, schedule.Name);
+                _log.LogTrace($"{principalId} added schedule {schedule.Name}");
 
                 return Created(
-                    $"schedule/{schedule.Name}",
-                    schedule);
+                    $"api/schedule/{schedule.Name}",
+                    new
+                {
+                    success = true,
+                    message = ""
+                });
             }
             catch (FormatException fmt)
             {
@@ -64,14 +64,9 @@ namespace Appointments.Controllers
             try
             {
                 var principalId = Guid.Parse(GetSubjectId);
-                var key = new Domain.Schedule
-                {
-                    PrincipalId = principalId,
-                    Name = name   
-                };
 
-                await _repo.Delete(key);
-                _log.LogTrace($"{principalId} deleted schedule {name}", key);
+                await _repo.Delete(principalId, name);
+                _log.LogTrace($"{principalId} deleted schedule {name}");
                 
                 return Ok();
             }
@@ -90,10 +85,7 @@ namespace Appointments.Controllers
                 var principalId = Guid.Parse(GetSubjectId);
 
                 var r = await _repo.List(principalId);
-                return Ok(r.Select(x => new 
-                {
-                    name = x
-                }));
+                return Ok(r);
             }
             catch (FormatException fmt)
             {
@@ -108,23 +100,14 @@ namespace Appointments.Controllers
             try
             {
                 var principalId = Guid.Parse(GetSubjectId);
-
                 var r = await _repo.Get(principalId, name);
                 
                 return r != null 
-                    ? Ok(new 
-                        {
-                            name = r.Name,
-                            appointments = r.Appointments.Select(x => new
-                            {
-                                start = x.Start,
-                                duration = x.MinuteDuration,
-                                participants = x.Participants.Select(p => new
-                                {
-                                    name = p.Name
-                                }).ToArray()
-                            }).ToArray()
-                        }) as IActionResult
+                    ? Ok(r.Select(x => new 
+                    { 
+                        start = x.Start,
+                        duration = x.Duration
+                    })) as IActionResult
                     : NotFound() as IActionResult;
             }
             catch (FormatException fmt)

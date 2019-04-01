@@ -1,4 +1,4 @@
-﻿using Appointments.Features;
+﻿using Appointments.Domain;
 using Appointments.Records;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
@@ -41,6 +41,7 @@ namespace Appointments
             services.AddDbContext<Pgres>(opts =>
                     opts.UseNpgsql(Configuration.GetConnectionString("Psql")));
             services.AddScoped<IScheduleRepository, PgresRepo>();
+            services.AddScoped<IParticipantRepository, ParticipantRepo>();
 
             services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_2);
         }

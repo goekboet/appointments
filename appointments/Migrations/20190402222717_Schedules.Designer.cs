@@ -10,8 +10,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace appointments.Migrations
 {
     [DbContext(typeof(Pgres))]
-    [Migration("20190329211038_schedule_appointment")]
-    partial class schedule_appointment
+    [Migration("20190402222717_Schedules")]
+    partial class Schedules
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
@@ -21,26 +21,29 @@ namespace appointments.Migrations
                 .HasAnnotation("ProductVersion", "2.2.3-servicing-35854")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
-            modelBuilder.Entity("Appointments.Features.Appointment", b =>
+            modelBuilder.Entity("Appointments.Domain.Appointment", b =>
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
                         .HasAnnotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityAlwaysColumn);
 
-                    b.Property<int>("MinuteDuration");
+                    b.Property<int>("Duration");
 
-                    b.Property<long>("ScheduleId");
+                    b.Property<string>("ScheduleName")
+                        .IsRequired();
 
                     b.Property<long>("Start");
 
                     b.HasKey("Id");
 
-                    b.HasAlternateKey("ScheduleId", "Start");
+                    b.HasAlternateKey("ScheduleName", "Start");
 
-                    b.ToTable("Appointment");
+                    b.HasIndex("Start");
+
+                    b.ToTable("Appointments");
                 });
 
-            modelBuilder.Entity("Appointments.Features.Participant", b =>
+            modelBuilder.Entity("Appointments.Domain.Participant", b =>
                 {
                     b.Property<long>("AppointmentId");
 
@@ -52,41 +55,37 @@ namespace appointments.Migrations
 
                     b.HasKey("AppointmentId", "SubjectId");
 
-                    b.HasIndex("SubjectId");
+                    b.HasIndex("Name");
 
                     b.ToTable("Participant");
                 });
 
-            modelBuilder.Entity("Appointments.Features.Schedule", b =>
+            modelBuilder.Entity("Appointments.Domain.Schedule", b =>
                 {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasAnnotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityAlwaysColumn);
-
                     b.Property<string>("Name")
-                        .IsRequired()
+                        .ValueGeneratedOnAdd()
                         .HasMaxLength(256);
 
                     b.Property<Guid>("PrincipalId");
 
-                    b.HasKey("Id");
+                    b.HasKey("Name");
 
-                    b.HasAlternateKey("PrincipalId", "Name");
+                    b.HasIndex("PrincipalId");
 
-                    b.ToTable("Schedule");
+                    b.ToTable("Schedules");
                 });
 
-            modelBuilder.Entity("Appointments.Features.Appointment", b =>
+            modelBuilder.Entity("Appointments.Domain.Appointment", b =>
                 {
-                    b.HasOne("Appointments.Features.Schedule")
+                    b.HasOne("Appointments.Domain.Schedule", "Schedule")
                         .WithMany("Appointments")
-                        .HasForeignKey("ScheduleId")
+                        .HasForeignKey("ScheduleName")
                         .OnDelete(DeleteBehavior.Cascade);
                 });
 
-            modelBuilder.Entity("Appointments.Features.Participant", b =>
+            modelBuilder.Entity("Appointments.Domain.Participant", b =>
                 {
-                    b.HasOne("Appointments.Features.Appointment", "Appointment")
+                    b.HasOne("Appointments.Domain.Appointment", "Appointment")
                         .WithMany("Participants")
                         .HasForeignKey("AppointmentId")
                         .OnDelete(DeleteBehavior.Cascade);

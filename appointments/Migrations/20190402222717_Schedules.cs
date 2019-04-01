@@ -4,44 +4,41 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 namespace appointments.Migrations
 {
-    public partial class schedule_appointment : Migration
+    public partial class Schedules : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
-                name: "Schedule",
+                name: "Schedules",
                 columns: table => new
                 {
-                    Id = table.Column<long>(nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityAlwaysColumn),
-                    PrincipalId = table.Column<Guid>(nullable: false),
-                    Name = table.Column<string>(maxLength: 256, nullable: false)
+                    Name = table.Column<string>(maxLength: 256, nullable: false),
+                    PrincipalId = table.Column<Guid>(nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Schedule", x => x.Id);
-                    table.UniqueConstraint("AK_Schedule_PrincipalId_Name", x => new { x.PrincipalId, x.Name });
+                    table.PrimaryKey("PK_Schedules", x => x.Name);
                 });
 
             migrationBuilder.CreateTable(
-                name: "Appointment",
+                name: "Appointments",
                 columns: table => new
                 {
                     Id = table.Column<long>(nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityAlwaysColumn),
+                    ScheduleName = table.Column<string>(nullable: false),
                     Start = table.Column<long>(nullable: false),
-                    MinuteDuration = table.Column<int>(nullable: false),
-                    ScheduleId = table.Column<long>(nullable: false)
+                    Duration = table.Column<int>(nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Appointment", x => x.Id);
-                    table.UniqueConstraint("AK_Appointment_ScheduleId_Start", x => new { x.ScheduleId, x.Start });
+                    table.PrimaryKey("PK_Appointments", x => x.Id);
+                    table.UniqueConstraint("AK_Appointments_ScheduleName_Start", x => new { x.ScheduleName, x.Start });
                     table.ForeignKey(
-                        name: "FK_Appointment_Schedule_ScheduleId",
-                        column: x => x.ScheduleId,
-                        principalTable: "Schedule",
-                        principalColumn: "Id",
+                        name: "FK_Appointments_Schedules_ScheduleName",
+                        column: x => x.ScheduleName,
+                        principalTable: "Schedules",
+                        principalColumn: "Name",
                         onDelete: ReferentialAction.Cascade);
                 });
 
@@ -57,17 +54,27 @@ namespace appointments.Migrations
                 {
                     table.PrimaryKey("PK_Participant", x => new { x.AppointmentId, x.SubjectId });
                     table.ForeignKey(
-                        name: "FK_Participant_Appointment_AppointmentId",
+                        name: "FK_Participant_Appointments_AppointmentId",
                         column: x => x.AppointmentId,
-                        principalTable: "Appointment",
+                        principalTable: "Appointments",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateIndex(
-                name: "IX_Participant_SubjectId",
+                name: "IX_Appointments_Start",
+                table: "Appointments",
+                column: "Start");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Participant_Name",
                 table: "Participant",
-                column: "SubjectId");
+                column: "Name");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Schedules_PrincipalId",
+                table: "Schedules",
+                column: "PrincipalId");
         }
 
         protected override void Down(MigrationBuilder migrationBuilder)
@@ -76,10 +83,10 @@ namespace appointments.Migrations
                 name: "Participant");
 
             migrationBuilder.DropTable(
-                name: "Appointment");
+                name: "Appointments");
 
             migrationBuilder.DropTable(
-                name: "Schedule");
+                name: "Schedules");
         }
     }
 }

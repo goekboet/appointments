@@ -12,272 +12,256 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 using DevAuth = Appointments.Auth.DevelopmentAuth;
-using Domain = Appointments.Features;
+using Domain = Appointments.Domain;
 using Controller = Appointments.Controllers.Models;
+using Test.Cntrollers.Records;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using System.Linq;
 
-namespace Test.Cntrollers
+namespace Test.Controllers
 {
     [TestClass]
     public class RouteTests
     {
         private readonly WebApplicationFactory<Appointments.Startup> _factory;
 
+        public static readonly Dictionary<string, string> _dict =
+        new Dictionary<string, string>
+        {
+            {"ConnectionStrings:Psql", TestContextFactory.Cs},
+        };
+
         public RouteTests()
         {
-            _factory = new AppointmentsWebApplicationFactory<Appointments.Startup>(SeedData);
+            _factory = new WebApplicationFactory<Appointments.Startup>().WithWebHostBuilder(host =>
+            {
+                host.ConfigureAppConfiguration((h, appcfg) =>
+                {
+                    appcfg.AddInMemoryCollection(_dict);
+                });
+            });
         }
 
-        public static Guid KnownPrincipal => Guid.NewGuid();
-        public static Guid KnownSubject => Guid.NewGuid();
-
-        public static Domain.Schedule[] SeedData => new [] 
+        [ClassInitialize]
+        public static async Task Up(TestContext testctx)
         {
-            new Domain.Schedule
+            using (var ctx = new TestContextFactory().CreateDbContext(new string[0]))
             {
-                PrincipalId = KnownPrincipal,
-                Name = "first",
-                Appointments = 
-                {
-                    new Domain.Appointment
-                    {
-                        Start = 0,
-                        MinuteDuration = 10,
-                        Participants =
-                        {
-                            new Domain.Participant
-                            {
-                                SubjectId = KnownSubject.ToString(),
-                                Name = "someName"
-                            }
-                        }
-                    },
-                    new Domain.Appointment
-                    {
-                        Start = 10,
-                        MinuteDuration = 10,
-                        Participants =
-                        {
-                            new Domain.Participant
-                            {
-                                SubjectId = KnownSubject.ToString(),
-                                Name = "someName"
-                            }
-                        }
-                    },
-                    new Domain.Appointment
-                    {
-                        Start = 20,
-                        MinuteDuration = 10,
-                        Participants =
-                        {
-                            new Domain.Participant
-                            {
-                                SubjectId = KnownSubject.ToString(),
-                                Name = "someName"
-                            }
-                        }
-                    }
-                }
-            },
-            new Domain.Schedule
+                await ctx.Database.MigrateAsync();
+                ctx.AddRange(Seed.Data);
+                await ctx.SaveChangesAsync();
+            }
+        }
+
+        [ClassCleanup]
+        public static async Task Down()
+        {
+            using (var ctx = new TestContextFactory().CreateDbContext(new string[0]))
             {
-                PrincipalId = KnownPrincipal,
-                Name = "second",
-                Appointments = 
-                {
-                    new Domain.Appointment
-                    {
-                        Start = 0,
-                        MinuteDuration = 10,
-                        Participants =
-                        {
-                            new Domain.Participant
-                            {
-                                SubjectId = KnownSubject.ToString(),
-                                Name = "someName"
-                            }
-                        }
-                    },
-                    new Domain.Appointment
-                    {
-                        Start = 10,
-                        MinuteDuration = 10,
-                        Participants =
-                        {
-                            new Domain.Participant
-                            {
-                                SubjectId = KnownSubject.ToString(),
-                                Name = "someName"
-                            }
-                        }
-                    },
-                    new Domain.Appointment
-                    {
-                        Start = 20,
-                        MinuteDuration = 10,
-                        Participants =
-                        {
-                            new Domain.Participant
-                            {
-                                SubjectId = KnownSubject.ToString(),
-                                Name = "someName"
-                            }
-                        }
-                    }
-                }
-            },
-            new Domain.Schedule
+                await ctx.Database.EnsureDeletedAsync();
+            }
+        }
+
+        [DataRow("Known principal list Schedules")]
+        [DataRow("Get Existing Schedule")]
+        [DataRow("List my appointments")]
+        [DataRow("Get my appointment")]
+        [DataRow("Get someone elses appointment")]
+        [TestMethod]
+        public async Task GetRoutesOk(string key)
+        {
+            var c = TestCases.Repository[key];
+            var client = _factory.CreateClient();
+
+            var response = await client.SendAsync(c.Request);
+
+            Assert.AreEqual(c.Expect.StatusCode, response.StatusCode);
+
+            var expectedContent = await c.Expect.Content.ReadAsStringAsync();
+            var actualContent = await response.Content.ReadAsStringAsync();
+
+            Assert.IsTrue(!response.IsSuccessStatusCode ||
+                expectedContent == actualContent);
+        }
+
+        [TestMethod]
+        public async Task PostAppointment()
+        {
+            var client = _factory.CreateClient();
+            var s = "first";
+            var start = DateTimeOffset.Now.ToUnixTimeSeconds();
+            var n = 4;
+            var req = HttpHelpers.PostAppointment(s, start, n);
+
+            var response = await client.SendAsync(req);
+
+            var location = response.Headers.GetValues("Location")
+                .First();
+
+            var v = await VerifyAppointmentPost(s, start);
+            
+            Assert.AreEqual(response.StatusCode, HttpStatusCode.Created);
+            Assert.AreEqual($"api/appointment/{s}", location);
+            Assert.AreEqual(n, v);
+        }
+
+        private async Task<int> VerifyAppointmentPost(
+            string schedule,
+            long start)
+        {
+            using (var ctx = new TestContextFactory().CreateDbContext(new string[0]))
             {
-                PrincipalId = Guid.NewGuid(),
-                Name = "third",
-                Appointments = 
+                return await ctx.Schedules
+                    .Where(x => x.Name == schedule)
+                    .SelectMany(x => x.Appointments)
+                    .CountAsync();
+            }
+        }
+
+        [TestMethod]
+        public async Task PostSchedule()
+        {
+            var client = _factory.CreateClient();
+            var s = Guid.NewGuid().ToString();
+            var req = HttpHelpers.PostSchedule(s);
+
+            var response = await client.SendAsync(req);
+
+            var location = response.Headers.GetValues("Location")
+                .First();
+
+            var v = await CountSchedules(s);
+            
+            Assert.AreEqual(response.StatusCode, HttpStatusCode.Created);
+            Assert.AreEqual($"api/schedule/{s}", location);
+            Assert.AreEqual(1, v);
+        }
+
+        private async Task<int> CountSchedules(
+            string name)
+        {
+            using (var ctx = new TestContextFactory().CreateDbContext(new string[0]))
+            {
+                return await ctx.Schedules
+                    .Where(x => x.Name == name)
+                    .CountAsync();
+            }
+        }
+
+        [TestMethod]
+        public async Task DeleteMyAppointment()
+        {
+            var client = _factory.CreateClient();
+            var schedule = Guid.NewGuid().ToString();
+            
+            var principal = Guid.NewGuid();
+            var subject = Guid.NewGuid().ToString();
+            var start = DateTimeOffset.Now.ToUnixTimeSeconds();
+            await AddSchedule(principal, schedule);
+            await AddAppointment(principal, schedule, start, subject);
+            var before = await CountParticipations(subject);
+
+            var req = HttpHelpers.DeleteMyAppointment(
+                subject, schedule, start);
+            var response = await client.SendAsync(req);
+
+            var after = await CountParticipations(subject);
+            
+            Assert.AreEqual(response.StatusCode, HttpStatusCode.OK);
+            Assert.AreEqual(before.others, after.others);
+            Assert.AreEqual(before.mine, after.mine + 1);
+        }
+
+        private async Task AddSchedule(
+            Guid principalId,
+            string name)
+        {
+            using (var ctx = new TestContextFactory().CreateDbContext(new string[0]))
+            {
+                ctx.Add(new Domain.Schedule
                 {
-                    new Domain.Appointment
-                    {
-                        Start = 0,
-                        MinuteDuration = 10,
-                        Participants =
+                    PrincipalId = principalId,
+                    Name = name,
+                    Appointments = Enumerable
+                        .Range(0, 10)
+                        .Select(x => new Domain.Appointment
                         {
+                            ScheduleName = name,
+                            Start = x * 100,
+                            Duration = 90,
+                            Participants = Enumerable.Range(0, 2)
+                            .Select(p => new Domain.Participant
+                            {
+                                SubjectId = Guid.NewGuid().ToString(),
+                                Name = p.ToString()
+                            })
+                            .ToList()
+                        })
+                        .ToList()
+                });
+
+                await ctx.SaveChangesAsync();
+            }
+        }
+
+        public async Task AddAppointment(
+                Guid principal,
+                string schedule,
+                long start,
+                string subjectId)
+            {
+                using (var ctx = new TestContextFactory().CreateDbContext(new string[0]))
+                {
+                    var s = ctx.Schedules
+                        .Where(x => 
+                            x.Name == schedule &&
+                            x.PrincipalId == principal)
+                        .Include(x => x.Appointments)
+                        .Single();
+
+                    s.Appointments.Add(new Domain.Appointment
+                    {
+                        ScheduleName = schedule,
+                        Start = start,
+                        Duration = 90,
+                        Participants = new []
+                        {
+                            new Domain.Participant
+                            {
+                                SubjectId = subjectId,
+                                Name = subjectId
+                            },
                             new Domain.Participant
                             {
                                 SubjectId = Guid.NewGuid().ToString(),
-                                Name = "someOtherName"
+                                Name = Guid.NewGuid().ToString()
                             }
-                        }
-                    },
-                    new Domain.Appointment
-                    {
-                        Start = 10,
-                        MinuteDuration = 10,
-                        Participants =
-                        {
-                            new Domain.Participant
-                            {
-                                SubjectId = KnownSubject.ToString(),
-                                Name = "someName"
-                            }
-                        }
-                    },
-                    new Domain.Appointment
-                    {
-                        Start = 20,
-                        MinuteDuration = 10,
-                        Participants =
-                        {
-                            new Domain.Participant
-                            {
-                                SubjectId = KnownSubject.ToString(),
-                                Name = "someName"
-                            }
-                        }
-                    }
+                        }.ToList()
+                    });
+
+                    await ctx.SaveChangesAsync();
                 }
             }
-        };
-
-        public static Domain.Schedule MockSchedule = new Domain.Schedule { Name = "someSchedule" };
-        public static Appointment MockAppointment = new Appointment
+        
+        public async Task<(int mine, int others)> CountParticipations(
+            string subjectId)
         {
-            Schedule = "someSchedule",
-            Participants = new[]
+            using (var ctx = new TestContextFactory().CreateDbContext(new string[0]))
             {
-                new Participant { SubjectId = Guid.NewGuid(), Name = "someDude"},
-                new Participant { SubjectId = Guid.NewGuid(), Name = "someOtherDude"}
+                var q = await ctx.Appointments
+                    .SelectMany(x => x.Participants)
+                    .GroupBy(
+                        x => x.SubjectId == subjectId)
+                    .Select(x => new { mine = x.Key, participants = x.Count() })
+                    .ToArrayAsync();
+
+                return 
+                (
+                    q.Where(x => x.mine).Count(),
+                    q.Where(x => !x.mine).Count()
+                );
             }
-        };
-
-        static Dictionary<string, object> Expectations = new Dictionary<string, object>
-        {
-            {"/api/appointment", new object() }
-        };
-
-        [DataRow("/api/appointment")]
-        [DataRow("/api/appointment/someSchedule/666")]
-        [DataRow("/api/schedule")]
-        [DataRow("/api/schedule/someSchedule")]
-        [TestMethod]
-        public async Task GetRoutesOk(string path)
-        {
-            var client = _factory.CreateClient();
-            var subjectId = Guid.NewGuid().ToString();
-
-            var testJwt = DevAuth.Token(subjectId);
-            var request = new HttpRequestMessage
-            {
-                Method = HttpMethod.Get,
-                RequestUri = new Uri(path, UriKind.Relative),
-                Headers = 
-                { 
-                    { HttpRequestHeader.Authorization.ToString(), $"Bearer {testJwt}" }
-                }
-            };
-
-            var response = await client.SendAsync(request);
-
-            Assert.IsTrue(
-                response.IsSuccessStatusCode,
-                $"{response.StatusCode} {response.ReasonPhrase}");
-        }
-
-        Dictionary<string, object> Payloads = new Dictionary<string, object>
-        {
-            ["api/appointment"] = MockAppointment,
-            ["api/schedule"] = MockSchedule
-        };
-
-        [DataRow("api/appointment")]
-        [DataRow("api/schedule")]
-        [TestMethod]
-        public async Task PostRoutesOk(string path)
-        {
-            var client = _factory.CreateClient();
-
-            var subjectId = Guid.NewGuid().ToString();
-
-            var testJwt = DevAuth.Token(subjectId);
-            var request = new HttpRequestMessage
-            {
-                Method = HttpMethod.Post,
-                RequestUri = new Uri(path, UriKind.Relative),
-                Headers = 
-                { 
-                    { HttpRequestHeader.Authorization.ToString(), $"Bearer {testJwt}" },
-                },
-                Content = new StringContent(
-                    content: JsonConvert.SerializeObject(Payloads[path]),
-                    encoding: Encoding.UTF8,
-                    mediaType: "application/json")
-            };
-
-            var response = await client.SendAsync(request);
-
-            Assert.IsTrue(
-                response.IsSuccessStatusCode,
-                $"{response.StatusCode} {response.ReasonPhrase}");
-        }
-
-        [DataRow("api/schedule/someSchedule")]
-        public async Task DeleteRoutesOk(string path)
-        {
-            var client = _factory.CreateClient();
-            var subjectId = Guid.NewGuid().ToString();
-
-            var testJwt = DevAuth.Token(subjectId);
-            var request = new HttpRequestMessage
-            {
-                Method = HttpMethod.Delete,
-                RequestUri = new Uri(path, UriKind.Relative),
-                Headers = 
-                { 
-                    { HttpRequestHeader.Authorization.ToString(), $"Bearer {testJwt}" }
-                }
-            };
-
-            var response = await client.SendAsync(request);
-
-            Assert.IsTrue(
-                response.IsSuccessStatusCode,
-                $"{response.StatusCode} {response.ReasonPhrase}");
         }
     }
 }
