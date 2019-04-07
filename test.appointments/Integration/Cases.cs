@@ -3,12 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
-using System.Text;
-using Newtonsoft.Json;
-using DevAuth = Appointments.Auth.DevelopmentAuth;
-using Domain = Appointments.Domain;
 
-namespace Test.Controllers
+using Domain = Appointments.Domain;
+using Suite = Test.Integration.Helpers;
+
+namespace Test.Integration
 {
     public class TestCase
     {
@@ -16,84 +15,8 @@ namespace Test.Controllers
         public HttpResponseMessage Expect { get; set; }
     }
 
-    public static class HttpHelpers
-    {
-        public static HttpContent Json(object o) =>
-            new StringContent(
-                JsonConvert.SerializeObject(o),
-                Encoding.UTF8,
-                "application/json");
-
-        public static string KnownPrincipalToken => DevAuth.Token(Seed.KnownPrincipal.ToString());
-        public static string KnownSubjectToken => DevAuth.Token(Seed.KnownSubject.ToString());
-
-        public static HttpRequestMessage PostAppointment(
-            string schedule,
-            long start,
-            int n) => new HttpRequestMessage
-            {
-                Method = HttpMethod.Post,
-                RequestUri = new Uri($"/api/appointment/{schedule}/{start}", UriKind.Relative),
-                Headers =
-                        {
-                            { HttpRequestHeader.Authorization.ToString(), $"Bearer {HttpHelpers.KnownPrincipalToken}" }
-                        },
-                Content = HttpHelpers.Json(new
-                {
-                    duration = 10,
-                    participants = Enumerable.Range(0, n).Select(x => new 
-                        { 
-                            name = x.ToString(), 
-                            subjectId = Guid.NewGuid().ToString()
-                        }) 
-                })
-            };
-
-        public static HttpRequestMessage PostSchedule(string name) => 
-            new HttpRequestMessage
-            {
-                Method = HttpMethod.Post,
-                RequestUri = new Uri($"/api/schedule", UriKind.Relative),
-                Headers =
-                        {
-                            { HttpRequestHeader.Authorization.ToString(), $"Bearer {HttpHelpers.KnownPrincipalToken}" }
-                        },
-                Content = HttpHelpers.Json(new { name = name })
-            };
-
-        public static HttpRequestMessage DeleteScedule(
-            Guid principalId,
-            string name) => new HttpRequestMessage
-            {
-                Method = HttpMethod.Delete,
-                RequestUri = new Uri($"/api/schedule/{name}", UriKind.Relative),
-                Headers =
-                        {
-                            { HttpRequestHeader.Authorization.ToString(), $"Bearer {DevAuth.Token(principalId.ToString())}" }
-                        },
-            };
-
-        public static HttpRequestMessage DeleteMyAppointment(
-            string subjectId,
-            string schedule,
-            long start) => new HttpRequestMessage
-            {
-                Method = HttpMethod.Delete,
-                RequestUri = new Uri($"/api/appointment/{schedule}/{start}", UriKind.Relative),
-                Headers =
-                {
-                    { 
-                        HttpRequestHeader.Authorization.ToString(), 
-                        $"Bearer {DevAuth.Token(subjectId)}" 
-                    }
-                },
-            };
-    }
-
     public static class Seed
     {
-        public static Guid KnownPrincipal { get; } = Guid.NewGuid();
-        public static Guid KnownSubject { get; } = Guid.NewGuid();
         public static Guid Cpt1 { get; } = Guid.NewGuid();
         public static Guid Cpt2 { get; } = Guid.NewGuid();
 
@@ -101,7 +24,7 @@ namespace Test.Controllers
         {
             new Domain.Schedule
             {
-                PrincipalId = KnownPrincipal,
+                PrincipalId = Suite.KnownPrincipal,
                 Name = "first",
                 Appointments =
                 {
@@ -139,7 +62,7 @@ namespace Test.Controllers
                         {
                             new Domain.Participant
                             {
-                                SubjectId = KnownSubject.ToString(),
+                                SubjectId = Suite.KnownSubject.ToString(),
                                 Name = "known-first-120"
                             }
                         }
@@ -148,7 +71,7 @@ namespace Test.Controllers
             },
             new Domain.Schedule
             {
-                PrincipalId = KnownPrincipal,
+                PrincipalId = Suite.KnownPrincipal,
                 Name = "second",
                 Appointments =
                 {
@@ -207,7 +130,7 @@ namespace Test.Controllers
                         {
                             new Domain.Participant
                             {
-                                SubjectId = KnownSubject.ToString(),
+                                SubjectId = Suite.KnownSubject.ToString(),
                                 Name = "known-third-300"
                             },
                             new Domain.Participant
@@ -255,6 +178,11 @@ namespace Test.Controllers
 
     public static class TestCases
     {
+        public static string PostScheduleString1 { get; } = Guid.NewGuid().ToString();
+        public static string PostAppointmentString1 { get; } = Guid.NewGuid().ToString();
+        public static long PostAppointmentStart {get;} = DateTimeOffset.Now.ToUnixTimeSeconds();
+        public static string DeleteScheduleString1 { get; } = Guid.NewGuid().ToString();
+        public static long DeleteAppointmentStart {get;} = DateTimeOffset.Now.ToUnixTimeSeconds();
         public static Dictionary<string, TestCase> Repository = new Dictionary<string, TestCase>
         {
             {
@@ -267,13 +195,13 @@ namespace Test.Controllers
                         RequestUri = new Uri("/api/schedule", UriKind.Relative),
                         Headers =
                         {
-                            { HttpRequestHeader.Authorization.ToString(), $"Bearer {HttpHelpers.KnownPrincipalToken}" }
+                            { HttpRequestHeader.Authorization.ToString(), $"Bearer {Helpers.KnownPrincipalToken}" }
                         }
                     },
                     Expect = new HttpResponseMessage
                     {
                         StatusCode = HttpStatusCode.OK,
-                        Content = HttpHelpers.Json(new []
+                        Content = Helpers.Json(new []
                             {
                                 new { name = "first" },
                                 new { name = "second" }
@@ -291,13 +219,13 @@ namespace Test.Controllers
                         RequestUri = new Uri("/api/schedule/first", UriKind.Relative),
                         Headers =
                         {
-                            { HttpRequestHeader.Authorization.ToString(), $"Bearer {HttpHelpers.KnownPrincipalToken}" }
+                            { HttpRequestHeader.Authorization.ToString(), $"Bearer {Helpers.KnownPrincipalToken}" }
                         }
                     },
                     Expect = new HttpResponseMessage
                     {
                         StatusCode = HttpStatusCode.OK,
-                        Content = HttpHelpers.Json(new []
+                        Content = Helpers.Json(new []
                         {
                             new
                             {
@@ -328,13 +256,13 @@ namespace Test.Controllers
                         RequestUri = new Uri("/api/appointment", UriKind.Relative),
                         Headers =
                         {
-                            { HttpRequestHeader.Authorization.ToString(), $"Bearer {HttpHelpers.KnownSubjectToken}" }
+                            { HttpRequestHeader.Authorization.ToString(), $"Bearer {Helpers.KnownSubjectToken}" }
                         }
                     },
                     Expect = new HttpResponseMessage
                     {
                         StatusCode = HttpStatusCode.OK,
-                        Content = HttpHelpers.Json(new []
+                        Content = Helpers.Json(new []
                         {
                             new
                             {
@@ -362,13 +290,13 @@ namespace Test.Controllers
                         RequestUri = new Uri("/api/appointment/third/300", UriKind.Relative),
                         Headers =
                         {
-                            { HttpRequestHeader.Authorization.ToString(), $"Bearer {HttpHelpers.KnownSubjectToken}" }
+                            { HttpRequestHeader.Authorization.ToString(), $"Bearer {Helpers.KnownSubjectToken}" }
                         }
                     },
                     Expect = new HttpResponseMessage
                     {
                         StatusCode = HttpStatusCode.OK,
-                        Content = HttpHelpers.Json(new []
+                        Content = Helpers.Json(new []
                         {
                             new
                             {
@@ -383,21 +311,81 @@ namespace Test.Controllers
                 }
             },
             {
-                "Get someone elses appointment",
+                "PostSchedule",
                 new TestCase
                 {
                     Request = new HttpRequestMessage
                     {
-                        Method = HttpMethod.Get,
-                        RequestUri = new Uri("/api/appointment/first/100", UriKind.Relative),
+                        Method = HttpMethod.Post,
+                        RequestUri = new Uri($"/api/schedule", UriKind.Relative),
                         Headers =
-                        {
-                            { HttpRequestHeader.Authorization.ToString(), $"Bearer {HttpHelpers.KnownSubjectToken}" }
-                        }
+                            {
+                                { HttpRequestHeader.Authorization.ToString(), $"Bearer {Helpers.KnownPrincipalToken}" }
+                            },
+                        Content = Helpers.Json(new { name = PostScheduleString1 })
                     },
                     Expect = new HttpResponseMessage
                     {
-                        StatusCode = HttpStatusCode.NotFound,
+                        StatusCode = HttpStatusCode.Created,
+                        Content = Helpers.Json(new 
+                            {
+                                success = true,
+                                message = ""
+                            }),
+                        Headers = { {"Location", $"api/schedule/{PostScheduleString1}"} }
+                    }
+                }
+            },
+            {
+                "PostAppointment",
+                new TestCase
+                {
+                    Request = new HttpRequestMessage
+                    {
+                        Method = HttpMethod.Post,
+                        RequestUri = new Uri($"/api/appointment/{PostAppointmentString1}/{PostAppointmentStart}", UriKind.Relative),
+                        Headers =
+                                {
+                                    { "Authorization", $"Bearer {Helpers.KnownPrincipalToken}" }
+                                },
+                        Content = Helpers.Json(new
+                        {
+                            duration = 10,
+                            participants = Enumerable.Range(0, 2).Select(x => new 
+                                { 
+                                    name = x.ToString(), 
+                                    subjectId = Guid.NewGuid().ToString()
+                                }) 
+                        })
+                    },
+                    Expect = new HttpResponseMessage
+                    {
+                        StatusCode = HttpStatusCode.Created,
+                        Content = Helpers.Json(new 
+                            {
+                                success = true,
+                                message = ""
+                            }),
+                        Headers = { {"Location", $"api/appointment/{PostAppointmentString1}"} }
+                    }
+                }
+            },
+            {
+                "DeleteMyAppointment",
+                new TestCase
+                {
+                    Request = new HttpRequestMessage
+                    {
+                        Method = HttpMethod.Delete,
+                        RequestUri = new Uri($"/api/appointment/{DeleteScheduleString1}/{DeleteAppointmentStart}", UriKind.Relative),
+                        Headers =
+                                {
+                                    { "Authorization", $"Bearer {Helpers.KnownSubjectToken}" }
+                                },
+                    },
+                    Expect = new HttpResponseMessage
+                    {
+                        StatusCode = HttpStatusCode.OK,
                         Content = new StringContent("")
                     }
                 }

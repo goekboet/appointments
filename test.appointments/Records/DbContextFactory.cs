@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 
-namespace Test.Cntrollers.Records
+namespace Test.Records
 {
     public class TestContextFactory : IDesignTimeDbContextFactory<Pgres>
     {
