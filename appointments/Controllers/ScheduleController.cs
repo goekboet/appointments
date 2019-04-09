@@ -40,7 +40,10 @@ namespace Appointments.Controllers
             {
                 var principalId = Guid.Parse(GetSubjectId);
 
-                await _repo.Add(principalId, schedule.Name);
+                await _repo.Add(new PrincipalClaim(
+                    principalId,
+                    schedule.Name
+                ));
                 _log.LogTrace($"{principalId} added schedule {schedule.Name}");
 
                 return Created(
@@ -65,7 +68,10 @@ namespace Appointments.Controllers
             {
                 var principalId = Guid.Parse(GetSubjectId);
 
-                await _repo.Delete(principalId, name);
+                await _repo.Delete(new PrincipalClaim(
+                    principalId,
+                    name
+                ));
                 _log.LogTrace($"{principalId} deleted schedule {name}");
                 
                 return Ok();
@@ -84,8 +90,12 @@ namespace Appointments.Controllers
             {
                 var principalId = Guid.Parse(GetSubjectId);
 
-                var r = await _repo.List(principalId);
-                return Ok(r);
+                var r = await _repo.List(
+                    new PrincipalClaim(principalId));
+                return Ok(r.Select(x => new 
+                { 
+                    name = x.Name 
+                }));
             }
             catch (FormatException fmt)
             {
@@ -100,7 +110,10 @@ namespace Appointments.Controllers
             try
             {
                 var principalId = Guid.Parse(GetSubjectId);
-                var r = await _repo.Get(principalId, name);
+                var r = await _repo.Get(new PrincipalClaim(
+                    principalId,
+                    name
+                ));
                 
                 return r != null 
                     ? Ok(r.Select(x => new 

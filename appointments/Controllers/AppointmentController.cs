@@ -56,11 +56,20 @@ namespace Appointments.Controllers
             try
             {
                 await _repo.Add(
-                    Guid.Parse(GetSubjectId),
-                    schedule,
-                    start,
-                    ps.Duration,
-                    ps.Participants
+                    new PrincipalClaim(
+                        Guid.Parse(GetSubjectId),
+                        schedule),
+                    new Appointment
+                    {
+                        Start = start,
+                        Duration = ps.Duration,
+                        Participants = ps.Participants
+                            .Select(x => new Participant
+                            {
+                                SubjectId = x.SubjectId,
+                                Name = x.Name
+                            }).ToList()
+                    }
                 );
 
                 return Created($"api/appointment/{schedule}", new
@@ -83,7 +92,12 @@ namespace Appointments.Controllers
         {
             try
             {
-                var r = await _repo.Get(schedule, start, GetSubjectId);
+                var r = await _repo.Get(new ParticipantClaim
+                {
+                    Schedule = schedule,
+                    Start = start,
+                    SubjectId = GetSubjectId
+                });
                 
                 return r.Length > 1
                     ? Ok(
@@ -106,7 +120,12 @@ namespace Appointments.Controllers
         {
             try
             {
-                await _repo.Delete(schedule, start, GetSubjectId);
+                await _repo.Delete(new ParticipantClaim
+                {
+                    Schedule = schedule,
+                    Start = start,
+                    SubjectId = GetSubjectId
+                });
                 
                 return Ok();
             }

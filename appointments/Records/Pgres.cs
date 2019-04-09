@@ -6,6 +6,8 @@ using Appointments.Domain;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
+using Domain = Appointments.Domain;
+
 namespace Appointments.Records
 {
     public class Pgres : DbContext
@@ -33,56 +35,69 @@ namespace Appointments.Records
 
         Pgres _ctx;
 
-        public Task<int> Add(Guid principalId, string name)
+        public Task<int> Add(
+            PrincipalClaim claim)
         {
             _ctx.Schedules.Add(new Schedule
             {
-                PrincipalId = principalId,
-                Name = name
+                PrincipalId = claim.Id,
+                Name = claim.Schedule
             });
 
             return _ctx.SaveChangesAsync();
         }
 
-        public Task Delete(Guid principalId, string name)
+        public Task Delete(PrincipalClaim c)
         {
             _ctx.Remove(new Schedule
             {
-                PrincipalId = principalId,
-                Name = name
+                PrincipalId = c.Id,
+                Name = c.Schedule
             });
 
             return _ctx.SaveChangesAsync();
 
         }
 
-        public async Task<object[]> List(Guid principalId)
+        public async Task<Domain.Schedule[]> List(
+            PrincipalClaim c)
         {
             var q = from s in _ctx.Schedules
-                    where s.PrincipalId == principalId
+                    where s.PrincipalId == c.Id
                     orderby s.Name
-                    select new { name = s.Name };
+                    select new Domain.Schedule
+                    {
+                        PrincipalId = s.PrincipalId,
+                        Name = s.Name
+                    };
 
             return await q.ToArrayAsync();
         }
 
-        public async Task<Booking[]> Get(
-            Guid principalId,
-            string name)
+        public async Task<Domain.Appointment[]> Get(
+            PrincipalClaim c)
         {
             var q = from a in _ctx.Appointments
                     orderby a.Start
-                    where a.Schedule.PrincipalId == principalId &&
-                        a.ScheduleName == name
-                    select new Booking
+                    where a.Schedule.PrincipalId == c.Id &&
+                        a.ScheduleName == c.Schedule
+                    select new Domain.Appointment
                     { 
                         Start = a.Start,
                         Duration = a.Duration,
-                        Schedule = a.ScheduleName }
-                    ;
+                        Participants = a.Participants
+                            .Select(x => new Domain.Participant
+                            {
+                                SubjectId = x.SubjectId,
+                                Name = x.Name
+                            })
+                            .ToList() 
+                    };
 
             return await q.ToArrayAsync();
         }
+
+        public void Dispose() => _ctx.Dispose();
     }
 
     public class ParticipantRepo : IParticipantRepository
@@ -109,20 +124,18 @@ namespace Appointments.Records
             return await q.ToArrayAsync();
         }
 
-        public async Task<Participation[]> Get(
-            string schedule,
-            long start,
-            string subjectId)
+        public async Task<Domain.Participant[]> Get(
+            ParticipantClaim c)
         {
             var q =
                 from a in _ctx.Appointments
                 from p in a.Participants
                 orderby p.Name
                 where
-                    a.Schedule.Name == schedule &&
-                    a.Start == start &&
-                    a.Participants.Any(x => x.SubjectId == subjectId)
-                select new Participation
+                    a.Schedule.Name == c.Schedule &&
+                    a.Start == c.Start &&
+                    a.Participants.Any(x => x.SubjectId == c.SubjectId)
+                select new Domain.Participant
                 {
                     SubjectId = p.SubjectId,
                     Name = p.Name
@@ -132,21 +145,18 @@ namespace Appointments.Records
         }
 
         public async Task Add(
-            Guid principalId,
-            string schedule,
-            long start,
-            int duration,
-            Participation[] ps)
+            PrincipalClaim c,
+            Domain.Appointment ap)
         {
             var q =
                 from a in _ctx.Appointments
-                where a.Schedule.PrincipalId == principalId &&
-                    a.ScheduleName == schedule &&
-                    a.Start == start
+                where a.Schedule.PrincipalId == c.Id &&
+                    a.ScheduleName == c.Schedule &&
+                    a.Start == ap.Start                
                 select a;
 
             var participants =
-                (from p in ps
+                (from p in ap.Participants
                  select new Participant
                  {
                      SubjectId = p.SubjectId,
@@ -165,8 +175,8 @@ namespace Appointments.Records
 
             var claim = await (
                 from s in _ctx.Schedules
-                where s.PrincipalId == principalId &&
-                    s.Name == schedule
+                where s.PrincipalId == c.Id &&
+                    s.Name == c.Schedule
                 select s)
                 .Include(x => x.Appointments)
                 .SingleOrDefaultAsync();
@@ -177,9 +187,9 @@ namespace Appointments.Records
             claim.Appointments.Add(
                 new Appointment
                 {
-                    ScheduleName = schedule,
-                    Start = start,
-                    Duration = duration,
+                    ScheduleName = c.Schedule,
+                    Start = ap.Start,
+                    Duration = ap.Duration,
                     Participants = participants
                 });
 
@@ -187,16 +197,14 @@ namespace Appointments.Records
         }
 
         public async Task Delete(
-            string schedule, 
-            long start, 
-            string subjectId)
+            ParticipantClaim c)
         {
             var q = 
                 from a in _ctx.Appointments
                 from p in a.Participants
-                where a.ScheduleName == schedule &&
-                    a.Start == start &&
-                    p.SubjectId == subjectId
+                where a.ScheduleName == c.Schedule &&
+                    a.Start == c.Start &&
+                    p.SubjectId == c.SubjectId
                 select p;
 
             var participation = await q.SingleOrDefaultAsync();
@@ -207,5 +215,7 @@ namespace Appointments.Records
                 await _ctx.SaveChangesAsync();    
             }
         }
+
+        public void Dispose() => _ctx.Dispose();
     }
 }

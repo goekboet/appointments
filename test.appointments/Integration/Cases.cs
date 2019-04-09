@@ -5,6 +5,7 @@ using System.Net;
 using System.Net.Http;
 
 using Domain = Appointments.Domain;
+using Data = Appointments.Records;
 using Suite = Test.Integration.Helpers;
 
 namespace Test.Integration
@@ -20,47 +21,47 @@ namespace Test.Integration
         public static Guid Cpt1 { get; } = Guid.NewGuid();
         public static Guid Cpt2 { get; } = Guid.NewGuid();
 
-        public static Domain.Schedule[] Data => new[]
+        public static Data.Schedule[] Data => new[]
         {
-            new Domain.Schedule
+            new Data.Schedule
             {
                 PrincipalId = Suite.KnownPrincipal,
                 Name = "first",
                 Appointments =
                 {
-                    new Domain.Appointment
+                    new Data.Appointment
                     {
                         Start = 100,
                         Duration = 10,
                         Participants =
                         {
-                            new Domain.Participant
+                            new Data.Participant
                             {
                                 SubjectId = Guid.NewGuid().ToString(),
                                 Name = "1-first-100"
                             }
                         }
                     },
-                    new Domain.Appointment
+                    new Data.Appointment
                     {
                         Start = 110,
                         Duration = 10,
                         Participants =
                         {
-                            new Domain.Participant
+                            new Data.Participant
                             {
                                 SubjectId = Guid.NewGuid().ToString(),
                                 Name = "2-first-110"
                             }
                         }
                     },
-                    new Domain.Appointment
+                    new Data.Appointment
                     {
                         Start = 120,
                         Duration = 10,
                         Participants =
                         {
-                            new Domain.Participant
+                            new Data.Participant
                             {
                                 SubjectId = Suite.KnownSubject.ToString(),
                                 Name = "known-first-120"
@@ -69,45 +70,45 @@ namespace Test.Integration
                     }
                 }
             },
-            new Domain.Schedule
+            new Data.Schedule
             {
                 PrincipalId = Suite.KnownPrincipal,
                 Name = "second",
                 Appointments =
                 {
-                    new Domain.Appointment
+                    new Data.Appointment
                     {
                         Start = 200,
                         Duration = 10,
                         Participants =
                         {
-                            new Domain.Participant
+                            new Data.Participant
                             {
                                 SubjectId = Guid.NewGuid().ToString(),
                                 Name = "3-second-200"
                             }
                         }
                     },
-                    new Domain.Appointment
+                    new Data.Appointment
                     {
                         Start = 210,
                         Duration = 10,
                         Participants =
                         {
-                            new Domain.Participant
+                            new Data.Participant
                             {
                                 SubjectId = Guid.NewGuid().ToString(),
                                 Name = "4-second-210"
                             }
                         }
                     },
-                    new Domain.Appointment
+                    new Data.Appointment
                     {
                         Start = 220,
                         Duration = 10,
                         Participants =
                         {
-                            new Domain.Participant
+                            new Data.Participant
                             {
                                 SubjectId = Guid.NewGuid().ToString(),
                                 Name = "5-second-220"
@@ -116,55 +117,55 @@ namespace Test.Integration
                     }
                 }
             },
-            new Domain.Schedule
+            new Data.Schedule
             {
                 PrincipalId = Guid.NewGuid(),
                 Name = "third",
                 Appointments =
                 {
-                    new Domain.Appointment
+                    new Data.Appointment
                     {
                         Start = 300,
                         Duration = 10,
                         Participants =
                         {
-                            new Domain.Participant
+                            new Data.Participant
                             {
                                 SubjectId = Suite.KnownSubject.ToString(),
                                 Name = "known-third-300"
                             },
-                            new Domain.Participant
+                            new Data.Participant
                             {
                                 SubjectId = Cpt1.ToString(),
                                 Name = "cpt1-third-300"
                             },
-                            new Domain.Participant
+                            new Data.Participant
                             {
                                 SubjectId = Cpt2.ToString(),
                                 Name = "cpt2-third-300"
                             }
                         }
                     },
-                    new Domain.Appointment
+                    new Data.Appointment
                     {
                         Start = 310,
                         Duration = 10,
                         Participants =
                         {
-                            new Domain.Participant
+                            new Data.Participant
                             {
                                 SubjectId = Guid.NewGuid().ToString(),
                                 Name = "6-third-310"
                             }
                         }
                     },
-                    new Domain.Appointment
+                    new Data.Appointment
                     {
                         Start = 320,
                         Duration = 10,
                         Participants =
                         {
-                            new Domain.Participant
+                            new Data.Participant
                             {
                                 SubjectId = Guid.NewGuid().ToString(),
                                 Name = "7-third-320"

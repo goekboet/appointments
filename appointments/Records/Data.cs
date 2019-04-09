@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Appointments.Domain
+namespace Appointments.Records
 {
     public class Schedule
     {
