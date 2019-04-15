@@ -49,18 +49,18 @@ namespace Test.Records
                 password: DefaultTest.Password
             ).ToString();
 
+        static ILoggerFactory DebugLogger = new LoggerFactory()
+                .AddDebug();
+
         public Pgres CreateDbContext(string[] args)
         {
             var connectionString = args.Length > 0
                 ? args[0]
                 : DefaultTest.ToString();
 
-            var logger = new LoggerFactory()
-                .AddDebug();
-
             var optionsBuilder = new DbContextOptionsBuilder<Pgres>();
             optionsBuilder
-                .UseLoggerFactory(logger)
+                .UseLoggerFactory(DebugLogger)
                 .UseNpgsql(connectionString);
 
             return new Pgres(optionsBuilder.Options);

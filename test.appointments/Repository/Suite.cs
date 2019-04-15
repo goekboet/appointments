@@ -14,14 +14,15 @@ using Arbitrary = Appointments.Records.Arbitrary;
 using Data = Appointments.Records;
 using Domain = Appointments.Domain;
 
+
 namespace Test.Repository
 {
     [TestClass]
     public class Suite
     {
         static string DBCreds { get; } = TestContextFactory.GetFresh();
-        static Pgres dbConn() => 
-            new TestContextFactory().CreateDbContext(new [] { DBCreds });
+        static Pgres dbConn() =>
+            new TestContextFactory().CreateDbContext(new[] { DBCreds });
 
         [ClassInitialize]
         public static async Task Up(TestContext testctx)
@@ -36,9 +37,13 @@ namespace Test.Repository
                     3
                 )
                 .Take(3)
-                .Concat(new [] {KnownSchedule})
+                .Concat(new[]
+                {
+                    KnownSchedule,
+                    PutScheduleSeed
+                })
                 .ToArray();
-                
+
                 ctx.AddRange(seed);
                 await ctx.SaveChangesAsync();
             }
@@ -66,13 +71,13 @@ namespace Test.Repository
         public async Task ListSchedules()
         {
             var somePrincipalId = Guid.NewGuid();
-            var someNames = new []
+            var someNames = new[]
             {
                 "adam",
                 "ceasar",
                 "bertil"
             };
-            
+
             await Seed(someNames.Select(x => new Data.Schedule
             {
                 PrincipalId = somePrincipalId,
@@ -85,12 +90,11 @@ namespace Test.Repository
             using (var ctx = dbConn())
             {
                 var sut = new PgresRepo(ctx);
-                var r = await sut.List(new Domain.PrincipalClaim(somePrincipalId));
-                var e = someNames.Select(x => new Domain.Schedule
-                {
-                    Name = x,
-                    PrincipalId = somePrincipalId
-                }).OrderBy(x => x.Name);
+                var r = await sut.List(somePrincipalId);
+                var e = someNames.Select(x =>
+                    new Domain.PrincipalClaim(
+                        somePrincipalId, x)
+                ).OrderBy(x => x.Schedule);
 
                 Assert.IsTrue(e.SequenceEqual(r));
             }
@@ -98,7 +102,8 @@ namespace Test.Repository
 
         private static Random Rng { get; } = new Random();
         private static long Start { get; } = (long)Rng.Next();
-        private static Guid KnownPrincipal { get; } = 
+        private static long SomeStart() => (long)Rng.Next();
+        private static Guid KnownPrincipal { get; } =
             Guid.NewGuid();
 
         private static string KnownName { get; } =
@@ -131,7 +136,7 @@ namespace Test.Repository
                 Name = KnownName,
                 Appointments = KnownAppointments
             };
-        
+
 
         private static string SomeName() => Guid.NewGuid().ToString().Substring(0, 4);
 
@@ -163,6 +168,189 @@ namespace Test.Repository
                     : new Domain.Appointment[0];
 
                 Assert.IsTrue(expect.SequenceEqual(r));
+            }
+        }
+
+        Dictionary<string, (Guid id, string name)> AddCases =
+            new Dictionary<string, (Guid id, string name)>
+            {
+                { "Existing", (KnownPrincipal, KnownName) },
+                { "New", (KnownPrincipal, SomeName()) }
+            };
+
+        [TestMethod]
+        [DataRow("Existing")]
+        [DataRow("New")]
+        public async Task CreateSchedule(string key)
+        {
+            var input = AddCases[key];
+
+            using (var sut = new PgresRepo(dbConn()))
+            {
+                await sut.Add(
+                    new Domain.PrincipalClaim(
+                        input.id,
+                        input.name));
+            }
+
+            using (var c = dbConn())
+            {
+                var added = await c.Schedules.Where(x =>
+                    x.PrincipalId == input.id &&
+                    x.Name == input.name)
+                    .AnyAsync();
+
+                Assert.IsTrue(added);
+            }
+        }
+
+        [TestMethod]
+        public async Task DeleteSchedule()
+        {
+            var claim = new Domain.PrincipalClaim(
+                Guid.NewGuid(),
+                SomeName()
+            );
+
+            using (var ctx = dbConn())
+            {
+                ctx.Add(new Data.Schedule
+                {
+                    PrincipalId = claim.Id,
+                    Name = claim.Schedule
+                });
+                await ctx.SaveChangesAsync();
+            }
+
+            using (var sut = new PgresRepo(dbConn()))
+            {
+                await sut.Delete(claim);
+            }
+
+            using (var c = dbConn())
+            {
+                var added = await c.Schedules.Where(x =>
+                    x.PrincipalId == claim.Id &&
+                    x.Name == claim.Schedule)
+                    .AnyAsync();
+
+                Assert.IsFalse(added);
+            }
+        }
+
+        public static Data.Participant[] ParticipantSeed =
+            new[]
+            {
+                new Data.Participant
+                {
+                    SubjectId = Guid.NewGuid().ToString(),
+                    Name = SomeName()
+                },
+                new Data.Participant
+                {
+                    SubjectId = Guid.NewGuid().ToString(),
+                    Name = SomeName()
+                }
+            };
+
+        public static long StartSeed { get; } = SomeStart();
+
+        public static Domain.PrincipalClaim PutKnownClaim { get; } =
+            new Domain.PrincipalClaim(
+                Guid.NewGuid(),
+                SomeName()
+            );
+
+        public static Data.Appointment AppointmentSeed = new Data.Appointment
+        {
+            Start = StartSeed,
+            Participants = ParticipantSeed.ToList()
+        };
+
+        public static Domain.Appointment ExistingAppointment = new Domain.Appointment
+        {
+            Start = AppointmentSeed.Start,
+            Participants = AppointmentSeed.Participants
+                .Select(x => new Domain.Participant
+                {
+                    SubjectId = x.SubjectId,
+                    Name = x.Name
+                }).OrderBy(x => x.Name).ToList()
+        };
+
+        public static Data.Schedule PutScheduleSeed = new Data.Schedule
+        {
+            PrincipalId = PutKnownClaim.Id,
+            Name = PutKnownClaim.Schedule,
+            Appointments =
+                    {
+                        AppointmentSeed
+                    }
+        };
+
+
+        public static Domain.Appointment Payload { get; } = new Domain.Appointment
+        {
+            Start = SomeStart(),
+            Participants = Arbitrary.Participants()
+                        .Select(x => new Domain.Participant
+                        {
+                            SubjectId = x.SubjectId,
+                            Name = x.Name
+                        })
+                        .Take(2)
+                        .ToList()
+        };
+
+        public static Dictionary<string, (Domain.PrincipalClaim c, Domain.Appointment appointments, Domain.AppointmentEvent e)> PutCases =
+            new Dictionary<string, (Domain.PrincipalClaim c, Domain.Appointment appointments, Domain.AppointmentEvent e)>
+            {
+                ["UnknownClaim"] = (new Domain.PrincipalClaim(
+                Guid.NewGuid(),
+                SomeName()),
+                new Domain.Appointment(),
+                null),
+                ["Created"] = (
+                PutKnownClaim,
+                Payload,
+                new Domain.AppointmentEvent(
+                    null,
+                    Payload
+                )),
+                ["Updated"] = (
+                PutKnownClaim,
+                new Domain.Appointment
+                {
+                    Start = StartSeed,
+                    Participants = Payload.Participants
+                },
+                new Domain.AppointmentEvent(
+                    ExistingAppointment,
+                    new Domain.Appointment
+                    {
+                        Start = StartSeed,
+                        Participants = Payload.Participants
+                            .ToList()
+                    }
+                )
+            )
+            };
+
+        [TestMethod]
+        [DataRow("UnknownClaim")]
+        [DataRow("Created")]
+        [DataRow("Updated")]
+        public async Task PutAppointment(string key)
+        {
+            var testcase = PutCases[key];
+
+            using (var sut = new PgresRepo(dbConn()))
+            {
+                var r = await sut.PutAppointment(
+                    testcase.c,
+                    testcase.appointments);
+
+                Assert.AreEqual(testcase.e, r);
             }
         }
     }
