@@ -184,92 +184,6 @@ namespace Appointments.Records
             }
            
             return evt;
-            // var q =
-            //     from a in _ctx.Appointments
-            //     where a.Schedule.PrincipalId == c.Id &&
-            //         a.ScheduleName == c.Schedule &&
-            //         a.Start == ap.Start
-            //     select a;
-
-            // var was = await q
-            //     .Include(x => x.Participants)
-            //     .SingleOrDefaultAsync();
-
-            // Domain.Appointment before = null;
-            // if (was != null)
-            // {
-            //     before = new Domain.Appointment
-            //     {
-            //         Start = was.Start,
-            //         Duration = was.Duration,
-            //         Participants = was.Participants
-            //             .Select(x => new Domain.Participant
-            //             {
-            //                 SubjectId = x.SubjectId,
-            //                 Name = x.Name
-            //             }).ToList()
-            //     };
-
-            //     was.Duration = ap.Duration;
-            //     was.Participants = ap.Participants
-            //         .Select(x => new Participant
-            //         {
-            //             SubjectId = x.SubjectId,
-            //             Name = x.Name
-            //         }).ToList();
-            // }
-            // else
-            // {
-            //     _ctx.Add(new Appointment)
-            // }
-
-            // await _ctx.SaveChangesAsync();
-
-            // return new AppointmentEvent(
-            //     before,
-            //     ap
-            // );
-            // var participants =
-            //     (from p in ap.Participants
-            //      select new Participant
-            //      {
-            //          SubjectId = p.SubjectId,
-            //          Name = p.Name
-            //      }).ToList();
-
-
-            // var appt = await q
-            //     .Include(x => x.Participants)
-            //     .SingleOrDefaultAsync();
-
-            // if (appt != null)
-            // {
-            //     _ctx.Remove(appt);
-            // }
-
-            // var claim = await (
-            //     from s in _ctx.Schedules
-            //     where s.PrincipalId == c.Id &&
-            //         s.Name == c.Schedule
-            //     select s)
-            //     .Include(x => x.Appointments)
-            //     .SingleOrDefaultAsync();
-
-            // if (claim == null)
-            //     return null; //The principalId does not own schedule
-
-            // claim.Appointments.Add(
-            //     new Appointment
-            //     {
-            //         ScheduleName = c.Schedule,
-            //         Start = ap.Start,
-            //         Duration = ap.Duration,
-            //         Participants = participants
-            //     });
-
-            // await _ctx.SaveChangesAsync();
-
-            // return null;
         }
 
         public Task<AppointmentEvent> DeleteAppointment(PrincipalClaim claim, long start)
@@ -289,16 +203,16 @@ namespace Appointments.Records
         }
 
         Pgres _ctx;
-        public async Task<object[]> List(string subjectId)
+        public async Task<ParticipantAppointment[]> List(string subjectId)
         {
             var q = from a in _ctx.Appointments
                     orderby a.ScheduleName, a.Start
                     where a.Participants.Any(x => x.SubjectId == subjectId)
-                    select new
+                    select new Domain.ParticipantAppointment
                     {
-                        schedule = a.ScheduleName,
-                        start = a.Start,
-                        duration = a.Duration
+                        Schedule = a.ScheduleName,
+                        Start = a.Start,
+                        Duration = a.Duration
                     };
 
             return await q.ToArrayAsync();
@@ -323,8 +237,6 @@ namespace Appointments.Records
 
             return await q.ToArrayAsync();
         }
-
-
 
         public async Task Delete(
             ParticipantClaim c)

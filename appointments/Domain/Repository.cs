@@ -17,7 +17,7 @@ namespace Appointments.Domain
         public Guid Id { get; }
         public string Schedule { get; }
 
-        public override bool Equals(object obj) => 
+        public override bool Equals(object obj) =>
             obj is PrincipalClaim s &&
             s.Id == Id &&
             s.Schedule == Schedule;
@@ -25,8 +25,8 @@ namespace Appointments.Domain
         public override int GetHashCode() => Id.GetHashCode();
     }
 
-    public class AppointmentEvent 
-    { 
+    public class AppointmentEvent
+    {
         public static AppointmentEvent Empty() =>
             new AppointmentEvent(null, null);
         public AppointmentEvent(
@@ -39,16 +39,16 @@ namespace Appointments.Domain
         public Appointment Before { get; }
         public Appointment After { get; }
 
-        public override bool Equals(object obj) => 
+        public override bool Equals(object obj) =>
             obj is AppointmentEvent e &&
                 (e.Before == null ? Before == null : e.Before.Equals(Before)) &&
                 (e.After == null ? After == null : e.After.Equals(After));
 
-        public override int GetHashCode() => 
-            Before.GetHashCode() ^ 
+        public override int GetHashCode() =>
+            Before.GetHashCode() ^
             After.GetHashCode();
     }
-   
+
 
     public interface IScheduleRepository : IDisposable
     {
@@ -74,14 +74,14 @@ namespace Appointments.Domain
         public long Start { get; set; }
         public int Duration { get; set; }
 
-        public List<Participant> Participants { get; set; } = 
+        public List<Participant> Participants { get; set; } =
             new List<Participant>();
 
         public override bool Equals(object obj) =>
             obj is Appointment a &&
                 a.Start == Start;
 
-        public override int GetHashCode() => Start.GetHashCode();    
+        public override int GetHashCode() => Start.GetHashCode();
     }
 
     public class Participant
@@ -95,7 +95,23 @@ namespace Appointments.Domain
                 p.SubjectId == SubjectId;
 
         public override int GetHashCode() => $"{SubjectId}{Name}"
-            .GetHashCode(); 
+            .GetHashCode();
+    }
+
+    public class ParticipantAppointment
+    {
+        public string Schedule { get; set; }
+        public long Start { get; set; }
+        public int Duration { get; set; }
+
+        public override string ToString() =>
+            $"n: {Schedule} s: {Start} dur: {Duration}";
+        
+        public override bool Equals(object obj) =>
+            obj != null && obj.ToString().Equals(this.ToString());
+
+        public override int GetHashCode() => this.ToString().GetHashCode();
+
     }
 
     public class ParticipantClaim
@@ -107,11 +123,9 @@ namespace Appointments.Domain
 
     public interface IParticipantRepository : IDisposable
     {
-        Task<object[]> List(string subjectId);
+        Task<ParticipantAppointment[]> List(string subjectId);
 
         Task<Participant[]> Get(ParticipantClaim claim);
-
-        
 
         Task Delete(ParticipantClaim claim);
     }
