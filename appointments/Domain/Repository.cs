@@ -4,18 +4,6 @@ using System.Threading.Tasks;
 
 namespace Appointments.Domain
 {
-    public class Schedule
-    {
-        public Guid PrincipalId { get;set;}
-        public string Name {get;set;}
-
-        public override bool Equals(object obj) => obj is Schedule s &&
-            s.PrincipalId == PrincipalId &&
-            s.Name == Name;
-
-        public override int GetHashCode() => Name.GetHashCode();
-    }
-
     public class PrincipalClaim
     {
         public PrincipalClaim(
@@ -28,13 +16,55 @@ namespace Appointments.Domain
 
         public Guid Id { get; }
         public string Schedule { get; }
+
+        public override bool Equals(object obj) => 
+            obj is PrincipalClaim s &&
+            s.Id == Id &&
+            s.Schedule == Schedule;
+
+        public override int GetHashCode() => Id.GetHashCode();
     }
+
+    public class AppointmentEvent 
+    { 
+        public static AppointmentEvent Empty() =>
+            new AppointmentEvent(null, null);
+        public AppointmentEvent(
+            Appointment before,
+            Appointment after)
+        {
+            Before = before;
+            After = after;
+        }
+        public Appointment Before { get; }
+        public Appointment After { get; }
+
+        public override bool Equals(object obj) => 
+            obj is AppointmentEvent e &&
+                (e.Before == null ? Before == null : e.Before.Equals(Before)) &&
+                (e.After == null ? After == null : e.After.Equals(After));
+
+        public override int GetHashCode() => 
+            Before.GetHashCode() ^ 
+            After.GetHashCode();
+    }
+   
 
     public interface IScheduleRepository : IDisposable
     {
-        Task<int> Add(
+        Task Add(
             PrincipalClaim claim);
-        Task<Schedule[]> List(PrincipalClaim principalId);
+
+        Task<AppointmentEvent> PutAppointment(
+            PrincipalClaim claim,
+            Appointment appt);
+
+        Task<AppointmentEvent> DeleteAppointment(
+            PrincipalClaim claim,
+            long start
+        );
+
+        Task<IEnumerable<PrincipalClaim>> List(Guid principalId);
         Task<Appointment[]> Get(PrincipalClaim s);
         Task Delete(PrincipalClaim s);
     }
@@ -81,9 +111,7 @@ namespace Appointments.Domain
 
         Task<Participant[]> Get(ParticipantClaim claim);
 
-        Task Add(
-            PrincipalClaim claim,
-            Appointment appt);
+        
 
         Task Delete(ParticipantClaim claim);
     }

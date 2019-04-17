@@ -21,14 +21,17 @@ namespace Appointments.Controllers
             .FirstOrDefault(c => c.Type == sub).Value;
 
         public AppointmentController(
-            IParticipantRepository repo,
+            IParticipantRepository pptRepo,
+            IScheduleRepository schRepo,
             ILogger<AppointmentController> log)
         {
-            _repo = repo;
+            _pptrepo = pptRepo;
+            _schrepo = schRepo;
             _log = log;
         }
 
-        private IParticipantRepository _repo;
+        private IParticipantRepository _pptrepo;
+        private IScheduleRepository _schrepo;
         private ILogger<AppointmentController> _log;
             
         [HttpGet]
@@ -36,7 +39,7 @@ namespace Appointments.Controllers
         {
             try
             {
-                var r = await _repo.List(GetSubjectId);
+                var r = await _pptrepo.List(GetSubjectId);
                 
                 return Ok(r);
             }
@@ -55,7 +58,7 @@ namespace Appointments.Controllers
         {
             try
             {
-                await _repo.Add(
+                await _schrepo.PutAppointment(
                     new PrincipalClaim(
                         Guid.Parse(GetSubjectId),
                         schedule),
@@ -92,7 +95,7 @@ namespace Appointments.Controllers
         {
             try
             {
-                var r = await _repo.Get(new ParticipantClaim
+                var r = await _pptrepo.Get(new ParticipantClaim
                 {
                     Schedule = schedule,
                     Start = start,
@@ -120,7 +123,7 @@ namespace Appointments.Controllers
         {
             try
             {
-                await _repo.Delete(new ParticipantClaim
+                await _pptrepo.Delete(new ParticipantClaim
                 {
                     Schedule = schedule,
                     Start = start,

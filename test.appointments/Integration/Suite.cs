@@ -6,14 +6,14 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Test.Records;
 
+using Db = Test.Records.DbLifeCycle;
+
 namespace Test.Integration
 {
     [TestClass]
     public class RouteTests
     {
         private readonly WebApplicationFactory<Appointments.Startup> _factory;
-
-        static string DBCreds { get; } = TestContextFactory.GetFresh();
 
         public RouteTests()
         {
@@ -24,32 +24,20 @@ namespace Test.Integration
                     appcfg.AddInMemoryCollection(
                         new Dictionary<string, string>
                         {
-                            {"ConnectionStrings:Psql", DBCreds}
+                            {"ConnectionStrings:Psql", Db.DBCreds}
                         });
                 });
             });
         }
 
-        static DbContext dbConn() => 
-            new TestContextFactory().CreateDbContext(new [] { DBCreds });
-
         [ClassInitialize]
         public static async Task Up(TestContext testctx)
         {
-            using (var ctx = dbConn())
+            using (var ctx = Db.dbConn())
             {
-                await ctx.Database.MigrateAsync();
                 ctx.AddRange(Seed.Data);
-                await ctx.SaveChangesAsync();
-            }
-        }
 
-        [ClassCleanup]
-        public static async Task Down()
-        {
-            using (var ctx = dbConn())
-            {
-                await ctx.Database.EnsureDeletedAsync();
+                await ctx.SaveChangesAsync();
             }
         }
 

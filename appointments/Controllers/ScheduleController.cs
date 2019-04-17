@@ -90,11 +90,10 @@ namespace Appointments.Controllers
             {
                 var principalId = Guid.Parse(GetSubjectId);
 
-                var r = await _repo.List(
-                    new PrincipalClaim(principalId));
+                var r = await _repo.List(principalId);
                 return Ok(r.Select(x => new 
                 { 
-                    name = x.Name 
+                    name = x.Schedule 
                 }));
             }
             catch (FormatException fmt)

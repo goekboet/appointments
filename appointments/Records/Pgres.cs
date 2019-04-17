@@ -35,43 +35,61 @@ namespace Appointments.Records
 
         Pgres _ctx;
 
-        public Task<int> Add(
+        public async Task Add(
             PrincipalClaim claim)
         {
-            _ctx.Schedules.Add(new Schedule
-            {
-                PrincipalId = claim.Id,
-                Name = claim.Schedule
-            });
+            var added = await (
+                from s in _ctx.Schedules
+                where s.PrincipalId == claim.Id &&
+                      s.Name == claim.Schedule
+                select s).AnyAsync();
 
-            return _ctx.SaveChangesAsync();
+            if (!added)
+            {
+                _ctx.Schedules.Add(new Schedule
+                {
+                    PrincipalId = claim.Id,
+                    Name = claim.Schedule
+                });
+
+                await _ctx.SaveChangesAsync();
+            }
         }
 
-        public Task Delete(PrincipalClaim c)
+        public async Task Delete(PrincipalClaim c)
         {
-            _ctx.Remove(new Schedule
+            var added = await (
+                from s in _ctx.Schedules
+                where s.PrincipalId == c.Id &&
+                      s.Name == c.Schedule
+                select s).AnyAsync();
+
+            if (added)
             {
-                PrincipalId = c.Id,
-                Name = c.Schedule
-            });
+                _ctx.Remove(new Schedule
+                {
+                    PrincipalId = c.Id,
+                    Name = c.Schedule
+                });
 
-            return _ctx.SaveChangesAsync();
-
+                await _ctx.SaveChangesAsync();
+            }
         }
 
-        public async Task<Domain.Schedule[]> List(
-            PrincipalClaim c)
+        public async Task<IEnumerable<Domain.PrincipalClaim>> List(
+            Guid id)
         {
             var q = from s in _ctx.Schedules
-                    where s.PrincipalId == c.Id
+                    where s.PrincipalId == id
                     orderby s.Name
-                    select new Domain.Schedule
+                    select new
                     {
-                        PrincipalId = s.PrincipalId,
-                        Name = s.Name
+                        Id = s.PrincipalId,
+                        Schedule = s.Name
                     };
+            var data = await q.ToArrayAsync();
 
-            return await q.ToArrayAsync();
+            return data.Select(x => new Domain.PrincipalClaim(x.Id, x.Schedule));
         }
 
         public async Task<Domain.Appointment[]> Get(
@@ -82,7 +100,7 @@ namespace Appointments.Records
                     where a.Schedule.PrincipalId == c.Id &&
                         a.ScheduleName == c.Schedule
                     select new Domain.Appointment
-                    { 
+                    {
                         Start = a.Start,
                         Duration = a.Duration,
                         Participants = a.Participants
@@ -91,10 +109,172 @@ namespace Appointments.Records
                                 SubjectId = x.SubjectId,
                                 Name = x.Name
                             })
-                            .ToList() 
+                            .ToList()
                     };
 
             return await q.ToArrayAsync();
+        }
+
+        public async Task<AppointmentEvent> PutAppointment(
+            PrincipalClaim c,
+            Domain.Appointment ap)
+        {
+            var claim = await (from s in _ctx.Schedules
+                where s.PrincipalId == c.Id &&
+                    s.Name == c.Schedule
+                select s)
+                    .SingleOrDefaultAsync();
+                
+            AppointmentEvent evt = null;
+            if (claim != null)
+            {
+                var appt = await (from a in _ctx.Appointments
+                    where a.ScheduleName == c.Schedule &&
+                        a.Start == ap.Start
+                    select a)
+                        .Include(x => x.Participants)
+                        .SingleOrDefaultAsync();
+                
+                if (appt != null)
+                {
+                    var before = new Domain.Appointment
+                    {
+                        Start = appt.Start,
+                        Duration = appt.Duration,
+                        Participants = appt.Participants
+                            .Select(x => new Domain.Participant
+                            {
+                                SubjectId = x.SubjectId,
+                                Name = x.Name
+                            }).OrderBy(x => x.Name).ToList()
+                    };
+
+                    appt.Duration = ap.Duration;
+                    appt.Participants = ap.Participants
+                        .Select(x => new Participant
+                        {
+                            SubjectId = x.SubjectId,
+                            Name = x.Name
+                        }).ToList();
+
+                    evt = new AppointmentEvent(
+                        before,
+                        ap);
+                }
+                else
+                {
+                    _ctx.Add(new Appointment
+                    {
+                        Schedule = claim,
+                        Start = ap.Start,
+                        Duration = ap.Duration,
+                        Participants = ap.Participants
+                            .Select(x => new Participant
+                            {
+                                SubjectId = x.SubjectId,
+                                Name = x.Name
+                            }).ToList()
+                    });
+
+                    evt = new AppointmentEvent(
+                        null,
+                        ap);
+                }
+                await _ctx.SaveChangesAsync();
+            }
+           
+            return evt;
+            // var q =
+            //     from a in _ctx.Appointments
+            //     where a.Schedule.PrincipalId == c.Id &&
+            //         a.ScheduleName == c.Schedule &&
+            //         a.Start == ap.Start
+            //     select a;
+
+            // var was = await q
+            //     .Include(x => x.Participants)
+            //     .SingleOrDefaultAsync();
+
+            // Domain.Appointment before = null;
+            // if (was != null)
+            // {
+            //     before = new Domain.Appointment
+            //     {
+            //         Start = was.Start,
+            //         Duration = was.Duration,
+            //         Participants = was.Participants
+            //             .Select(x => new Domain.Participant
+            //             {
+            //                 SubjectId = x.SubjectId,
+            //                 Name = x.Name
+            //             }).ToList()
+            //     };
+
+            //     was.Duration = ap.Duration;
+            //     was.Participants = ap.Participants
+            //         .Select(x => new Participant
+            //         {
+            //             SubjectId = x.SubjectId,
+            //             Name = x.Name
+            //         }).ToList();
+            // }
+            // else
+            // {
+            //     _ctx.Add(new Appointment)
+            // }
+
+            // await _ctx.SaveChangesAsync();
+
+            // return new AppointmentEvent(
+            //     before,
+            //     ap
+            // );
+            // var participants =
+            //     (from p in ap.Participants
+            //      select new Participant
+            //      {
+            //          SubjectId = p.SubjectId,
+            //          Name = p.Name
+            //      }).ToList();
+
+
+            // var appt = await q
+            //     .Include(x => x.Participants)
+            //     .SingleOrDefaultAsync();
+
+            // if (appt != null)
+            // {
+            //     _ctx.Remove(appt);
+            // }
+
+            // var claim = await (
+            //     from s in _ctx.Schedules
+            //     where s.PrincipalId == c.Id &&
+            //         s.Name == c.Schedule
+            //     select s)
+            //     .Include(x => x.Appointments)
+            //     .SingleOrDefaultAsync();
+
+            // if (claim == null)
+            //     return null; //The principalId does not own schedule
+
+            // claim.Appointments.Add(
+            //     new Appointment
+            //     {
+            //         ScheduleName = c.Schedule,
+            //         Start = ap.Start,
+            //         Duration = ap.Duration,
+            //         Participants = participants
+            //     });
+
+            // await _ctx.SaveChangesAsync();
+
+            // return null;
+        }
+
+        public Task<AppointmentEvent> DeleteAppointment(PrincipalClaim claim, long start)
+        {
+            throw new NotImplementedException();
         }
 
         public void Dispose() => _ctx.Dispose();
@@ -144,62 +324,12 @@ namespace Appointments.Records
             return await q.ToArrayAsync();
         }
 
-        public async Task Add(
-            PrincipalClaim c,
-            Domain.Appointment ap)
-        {
-            var q =
-                from a in _ctx.Appointments
-                where a.Schedule.PrincipalId == c.Id &&
-                    a.ScheduleName == c.Schedule &&
-                    a.Start == ap.Start                
-                select a;
 
-            var participants =
-                (from p in ap.Participants
-                 select new Participant
-                 {
-                     SubjectId = p.SubjectId,
-                     Name = p.Name
-                 }).ToList();
-
-
-            var appt = await q
-                .Include(x => x.Participants)
-                .SingleOrDefaultAsync();
-
-            if (appt != null)
-            {
-                _ctx.Remove(appt);
-            }
-
-            var claim = await (
-                from s in _ctx.Schedules
-                where s.PrincipalId == c.Id &&
-                    s.Name == c.Schedule
-                select s)
-                .Include(x => x.Appointments)
-                .SingleOrDefaultAsync();
-
-            if (claim == null)
-                return; //The principalId does not own schedule
-
-            claim.Appointments.Add(
-                new Appointment
-                {
-                    ScheduleName = c.Schedule,
-                    Start = ap.Start,
-                    Duration = ap.Duration,
-                    Participants = participants
-                });
-
-            await _ctx.SaveChangesAsync();
-        }
 
         public async Task Delete(
             ParticipantClaim c)
         {
-            var q = 
+            var q =
                 from a in _ctx.Appointments
                 from p in a.Participants
                 where a.ScheduleName == c.Schedule &&
@@ -208,11 +338,11 @@ namespace Appointments.Records
                 select p;
 
             var participation = await q.SingleOrDefaultAsync();
-            
+
             if (participation != null)
             {
                 _ctx.Remove(participation);
-                await _ctx.SaveChangesAsync();    
+                await _ctx.SaveChangesAsync();
             }
         }
 
