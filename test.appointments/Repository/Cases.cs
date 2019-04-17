@@ -2,8 +2,9 @@ using System;
 using System.Linq;
 using Appointments.Controllers.Models;
 using Appointments.Domain;
-
+using Appointments.Records;
 using Data = Appointments.Records;
+using Domain = Appointments.Domain;
 
 namespace Test.Repository
 {
@@ -105,6 +106,89 @@ namespace Test.Repository
                         .OrderBy(x => x.Schedule)
                         .ThenBy(x => x.Start)
                         .ToArray()
+                    };
+                
+                default:
+                    throw new ArgumentException(nameof(s));
+            }
+        }
+
+        public static TestCase<Data.Schedule, ParticipantClaim, Domain.Participant[]> GetAppointment(string s)
+        {
+            switch (s)
+            {
+                case "NoSuchAppointment":
+                    return new TestCase<Data.Schedule, ParticipantClaim, Domain.Participant[]>
+                    {
+                        Given = new Data.Schedule[0],
+                        Expect = new Domain.Participant[0],
+                        Arguments = new ParticipantClaim
+                        {
+                            Schedule = Guid.NewGuid().ToString(),
+                            Start = Rng.Next(),
+                            SubjectId = Guid.NewGuid().ToString()
+                        }
+                    };
+                case "AppointmentOnRecord":
+                    var knownClaim = new ParticipantClaim
+                    {
+                            Schedule = Guid.NewGuid().ToString(),
+                            Start = Rng.Next(),
+                            SubjectId = Guid.NewGuid().ToString()
+                    };
+                    var myName = SomeName();
+
+                    var counterpart = new Data.Participant
+                    {
+                        SubjectId = Guid.NewGuid().ToString(),
+                        Name = SomeName()
+                    };
+
+                    return new TestCase<Data.Schedule, ParticipantClaim, Domain.Participant[]>
+                    {
+                        Given = new []
+                        {
+                            new Data.Schedule
+                            {
+                                PrincipalId = Guid.NewGuid(),
+                                Name = knownClaim.Schedule,
+                                Appointments =
+                                {
+                                    new Data.Appointment
+                                    {
+                                        Start = Rng.Next(),
+                                        Participants = Arbitrary.Participants().Take(2).ToList()
+                                    },
+                                    new Data.Appointment
+                                    {
+                                        Start = knownClaim.Start,
+                                        Participants =
+                                        {
+                                            counterpart,
+                                            new Data.Participant
+                                            {
+                                                SubjectId = knownClaim.SubjectId,
+                                                Name = myName
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        Expect = new []
+                        {
+                            new Domain.Participant
+                            {
+                                SubjectId = knownClaim.SubjectId,
+                                Name = myName
+                            },
+                            new Domain.Participant
+                            {
+                                SubjectId = counterpart.SubjectId,
+                                Name = counterpart.Name
+                            }
+                        }.OrderBy(x => x.Name).ToArray(),
+                        Arguments = knownClaim
                     };
                 
                 default:
