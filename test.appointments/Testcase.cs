@@ -1,4 +1,4 @@
-namespace Test.Repository
+namespace Test
 {
     public class TestCase<TSeed, TInput, TExpect>
     {

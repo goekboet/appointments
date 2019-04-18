@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
-namespace Appointments.Domain
+namespace Appointments.Domain.Schedule
 {
     public class PrincipalClaim
     {
@@ -49,24 +49,55 @@ namespace Appointments.Domain
             After.GetHashCode();
     }
 
+    public enum PostAppointmentResult
+    {
+        ClaimNotOnRecord,
+        Conflict,
+        Created
+    }
+
+    public abstract class DeleteAppointmentResult { }
+    public class ClaimNotOnRecord : DeleteAppointmentResult 
+    { 
+        public override string ToString() => nameof(ClaimNotOnRecord);
+    }
+    public class AppointmentNotOnRecord : DeleteAppointmentResult
+    { 
+        public override string ToString() => nameof(AppointmentNotOnRecord);
+    }
+    public class Deleted : DeleteAppointmentResult 
+    { 
+        public Deleted(Appointment a)
+        {
+            Appointment = a;
+        }
+        public Appointment Appointment { get; }
+
+        public override string ToString() => $"{nameof(Deleted)}: {Appointment}";
+    }
+
+    public enum CreateScheduleResult
+    {
+        Created,
+        Conflict
+    }
 
     public interface IScheduleRepository : IDisposable
     {
-        Task Add(
+        Task<CreateScheduleResult> Add(
             PrincipalClaim claim);
 
-        Task<AppointmentEvent> PutAppointment(
+        Task<PostAppointmentResult> PostAppointment(
             PrincipalClaim claim,
             Appointment appt);
 
-        Task<AppointmentEvent> DeleteAppointment(
+        Task<DeleteAppointmentResult> DeleteAppointment(
             PrincipalClaim claim,
             long start
         );
 
         Task<IEnumerable<PrincipalClaim>> List(Guid principalId);
         Task<Appointment[]> Get(PrincipalClaim s);
-        Task Delete(PrincipalClaim s);
     }
 
     public class Appointment
@@ -74,8 +105,8 @@ namespace Appointments.Domain
         public long Start { get; set; }
         public int Duration { get; set; }
 
-        public List<Participant> Participants { get; set; } =
-            new List<Participant>();
+        public List<Participation> Participants { get; set; } =
+            new List<Participation>();
 
         public override bool Equals(object obj) =>
             obj is Appointment a &&
@@ -84,49 +115,27 @@ namespace Appointments.Domain
         public override int GetHashCode() => Start.GetHashCode();
     }
 
-    public class Participant
+    public class Participation
     {
         public string SubjectId { get; set; }
         public string Name { get; set; }
 
-        public override bool Equals(object obj) =>
-            obj is Participant p &&
+        public override string ToString() =>
+            $"id: {SubjectId} n: {Name}";
+
+        public override bool Equals(object obj) => 
+            obj is Participation p &&
                 p.Name == Name &&
                 p.SubjectId == SubjectId;
 
-        public override int GetHashCode() => $"{SubjectId}{Name}"
+        public override int GetHashCode() => this
+            .ToString()
             .GetHashCode();
     }
 
-    public class ParticipantAppointment
-    {
-        public string Schedule { get; set; }
-        public long Start { get; set; }
-        public int Duration { get; set; }
+    
 
-        public override string ToString() =>
-            $"n: {Schedule} s: {Start} dur: {Duration}";
-        
-        public override bool Equals(object obj) =>
-            obj != null && obj.ToString().Equals(this.ToString());
+    
 
-        public override int GetHashCode() => this.ToString().GetHashCode();
-
-    }
-
-    public class ParticipantClaim
-    {
-        public string Schedule { get; set; }
-        public long Start { get; set; }
-        public string SubjectId { get; set; }
-    }
-
-    public interface IParticipantRepository : IDisposable
-    {
-        Task<ParticipantAppointment[]> List(string subjectId);
-
-        Task<Participant[]> Get(ParticipantClaim claim);
-
-        Task Delete(ParticipantClaim claim);
-    }
+    
 }

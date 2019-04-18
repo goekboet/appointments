@@ -33,7 +33,7 @@ namespace Test.Records
 
     public class TestContextFactory : IDesignTimeDbContextFactory<Pgres>
     {
-        public static ConnectionKey DefaultTest { get; } = 
+        private static ConnectionKey DefaultTest { get; } = 
             new ConnectionKey(
                 host: "localhost",
                 database: "test_appointments",

@@ -2,24 +2,24 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Appointments.Domain;
-using Appointments.Records;
+using Appointments.Records.Repository;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Db = Test.Records.DbLifeCycle;
+using P = Appointments.Domain.Participant;
 
 namespace Test.Repository
 {
     [TestClass]
     public class AppointmentsSuite
     {
-        public IParticipantRepository SutFactory() => new ParticipantRepo(Db.dbConn());
+        public P.IParticipantRepository SutFactory() => new ParticipantRepo(Db.dbConn());
         
         [DataRow("HaveNoApp")]
         [DataRow("HaveManyAppointments")]
         [TestMethod]
         public async Task ListMyAppointments(string key)
         {
-            var testCase = Cases.ListAppointment(key);
+            var testCase = AppointmentCases.ListAppointment(key);
 
             using (var db = Db.dbConn())
             {
@@ -44,7 +44,7 @@ namespace Test.Repository
         [TestMethod]
         public async Task GetMyAppointment(string key)
         {
-            var testCase = Cases.GetAppointment(key);
+            var testCase = AppointmentCases.GetAppointment(key);
 
             using (var db = Db.dbConn())
             {

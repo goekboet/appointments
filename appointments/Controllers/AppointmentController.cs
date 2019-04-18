@@ -1,6 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Appointments.Domain;
@@ -8,6 +6,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Json = Appointments.Controllers.Models;
+using P = Appointments.Domain.Participant;
+using S = Appointments.Domain.Schedule;
 
 namespace Appointments.Controllers
 {
@@ -21,8 +21,8 @@ namespace Appointments.Controllers
             .FirstOrDefault(c => c.Type == sub).Value;
 
         public AppointmentController(
-            IParticipantRepository pptRepo,
-            IScheduleRepository schRepo,
+            P.IParticipantRepository pptRepo,
+            S.IScheduleRepository schRepo,
             ILogger<AppointmentController> log)
         {
             _pptrepo = pptRepo;
@@ -30,8 +30,8 @@ namespace Appointments.Controllers
             _log = log;
         }
 
-        private IParticipantRepository _pptrepo;
-        private IScheduleRepository _schrepo;
+        private P.IParticipantRepository _pptrepo;
+        private S.IScheduleRepository _schrepo;
         private ILogger<AppointmentController> _log;
             
         [HttpGet]
@@ -45,7 +45,7 @@ namespace Appointments.Controllers
             }
             catch (FormatException fmt)
             {
-                _log.LogError($"Malformed sub-claim.", fmt);
+                _log.LogWarning($"Malformed sub-claim.", fmt);
                 return BadRequest();
             }
         }
@@ -58,28 +58,74 @@ namespace Appointments.Controllers
         {
             try
             {
-                await _schrepo.PutAppointment(
-                    new PrincipalClaim(
+                var claim = new S.PrincipalClaim(
                         Guid.Parse(GetSubjectId),
-                        schedule),
-                    new Appointment
+                        schedule);
+
+                var appointment = new S.Appointment
                     {
                         Start = start,
                         Duration = ps.Duration,
                         Participants = ps.Participants
-                            .Select(x => new Participant
+                            .Select(x => new S.Participation
                             {
                                 SubjectId = x.SubjectId,
                                 Name = x.Name
                             }).ToList()
-                    }
+                    };
+
+                var r = await _schrepo.PostAppointment(
+                    claim,
+                    appointment
                 );
 
-                return Created($"api/appointment/{schedule}", new
+                if (r == S.PostAppointmentResult.ClaimNotOnRecord)
                 {
-                    success = true,
-                    message = ""
-                });
+                    _log.LogWarning("Invalid claim {claim}", claim);
+                    return NotFound();
+                }
+                if (r == S.PostAppointmentResult.Conflict)
+                {
+                    return Conflict(new Json.Result
+                    {
+                        Success = false,
+                        Message = "Already created.",
+                        Links = new []
+                        {
+                            new Json.Link
+                            {
+                                Href = $"api/appointment/{schedule}",
+                                Ref = "self",
+                                Type = "GET"
+                            }
+                        }
+                    });
+                }
+                else
+                {
+                    _log.LogInformation(
+                        LoggingEvents.AppointmentCreated,
+                        "Appointment {appointment} created with {claim}", 
+                        appointment, 
+                        claim);
+
+                    return Created(
+                        $"api/appointment/{schedule}", 
+                        new Json.Result
+                        {
+                            Success = true,
+                            Links = new []
+                            {
+                                new Json.Link
+                                {
+                                    Href = $"api/appointment/{schedule}",
+                                    Ref = "self",
+                                    Type = "GET"
+                                }
+                            }
+                        });
+                }
+                
             }
             catch (FormatException fmt)
             {
@@ -95,19 +141,17 @@ namespace Appointments.Controllers
         {
             try
             {
-                var r = await _pptrepo.Get(new ParticipantClaim
+                var r = await _pptrepo.Get(new P.ParticipantClaim
                 {
                     Schedule = schedule,
                     Start = start,
                     SubjectId = GetSubjectId
                 });
                 
-                return r.Length > 1
-                    ? Ok(
+                return Ok(
                         from p in r 
                         where p.SubjectId != GetSubjectId 
-                        select new { name = p.Name })
-                    : NotFound() as IActionResult;
+                        select new { name = p.Name });
             }
             catch (FormatException fmt)
             {
@@ -123,7 +167,7 @@ namespace Appointments.Controllers
         {
             try
             {
-                await _pptrepo.Delete(new ParticipantClaim
+                await _pptrepo.Delete(new P.ParticipantClaim
                 {
                     Schedule = schedule,
                     Start = start,

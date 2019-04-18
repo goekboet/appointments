@@ -1,5 +1,5 @@
-﻿using Appointments.Domain;
-using Appointments.Records;
+﻿using Appointments.Records;
+using Appointments.Records.Repository;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -8,40 +8,35 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
-using DevAuth = Appointments.Auth.DevelopmentAuth;
+using P = Appointments.Domain.Participant;
+using S = Appointments.Domain.Schedule;
 
 namespace Appointments
 {
     public class Startup
     {
         public Startup(
-            IConfiguration configuration, 
-            IHostingEnvironment env)
+            IConfiguration configuration)
         {
             Configuration = configuration;
-            Env = env;
         }
 
         public IConfiguration Configuration { get; }
-        public IHostingEnvironment Env { get; }
 
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(
             IServiceCollection services)
         {
-            if (Env.IsDevelopment()) //must run on localhost
-            {
-                services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-                    .AddJwtBearer(conf =>
+            services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+                    .AddJwtBearer(opts =>
                     {
-                        conf.TokenValidationParameters = DevAuth.Params;
+                        Configuration.GetSection("Auth").Bind(opts);
                     });
-            }
             
             services.AddDbContext<Pgres>(opts =>
                     opts.UseNpgsql(Configuration.GetConnectionString("Psql")));
-            services.AddScoped<IScheduleRepository, PgresRepo>();
-            services.AddScoped<IParticipantRepository, ParticipantRepo>();
+            services.AddScoped<S.IScheduleRepository, PgresRepo>();
+            services.AddScoped<P.IParticipantRepository, ParticipantRepo>();
 
             services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_2);
         }

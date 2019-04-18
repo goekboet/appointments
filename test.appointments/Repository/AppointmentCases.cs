@@ -1,29 +1,27 @@
 using System;
 using System.Linq;
-using Appointments.Controllers.Models;
-using Appointments.Domain;
 using Appointments.Records;
 using Data = Appointments.Records;
-using Domain = Appointments.Domain;
+using P = Appointments.Domain.Participant;
 
 namespace Test.Repository
 {
-    public static class Cases
+    public static class AppointmentCases
     {
         private static Random Rng { get; } = new Random();
 
         private static string SomeName() => Guid.NewGuid().ToString().Substring(0, 4);
         
-        public static TestCase<Data.Schedule, string, ParticipantAppointment[]> ListAppointment(string s)
+        public static TestCase<Data.Schedule, string, P.Appointment[]> ListAppointment(string s)
         {
             switch (s)
             {
                 case "HaveNoApp":
-                    return new TestCase<Data.Schedule, string, ParticipantAppointment[]>
+                    return new TestCase<Data.Schedule, string, P.Appointment[]>
                     {
                         Given = new Data.Schedule[0],
                         Arguments = SomeName(),
-                        Expect = new ParticipantAppointment[0]
+                        Expect = new P.Appointment[0]
                     };
                 case "HaveManyAppointments":
                     var subject = (id: Guid.NewGuid().ToString(),n: SomeName());
@@ -33,7 +31,7 @@ namespace Test.Repository
                         (s: Guid.NewGuid().ToString(), appts: new [] {(long)Rng.Next()})
                     };
 
-                    return new TestCase<Data.Schedule, string, ParticipantAppointment[]>
+                    return new TestCase<Data.Schedule, string, P.Appointment[]>
                     {
                         Given = new []
                         {
@@ -87,17 +85,17 @@ namespace Test.Repository
                         Arguments = subject.id,
                         Expect = new []
                         {
-                            new ParticipantAppointment
+                            new P.Appointment
                             {
                                 Schedule = keys[0].s,
                                 Start = keys[0].appts[0]
                             },
-                            new ParticipantAppointment
+                            new P.Appointment
                             {
                                 Schedule = keys[0].s,
                                 Start = keys[0].appts[1]
                             },
-                            new ParticipantAppointment
+                            new P.Appointment
                             {
                                 Schedule = keys[1].s,
                                 Start = keys[1].appts[0]
@@ -113,16 +111,16 @@ namespace Test.Repository
             }
         }
 
-        public static TestCase<Data.Schedule, ParticipantClaim, Domain.Participant[]> GetAppointment(string s)
+        public static TestCase<Data.Schedule, P.ParticipantClaim, P.Participation[]> GetAppointment(string s)
         {
             switch (s)
             {
                 case "NoSuchAppointment":
-                    return new TestCase<Data.Schedule, ParticipantClaim, Domain.Participant[]>
+                    return new TestCase<Data.Schedule, P.ParticipantClaim, P.Participation[]>
                     {
                         Given = new Data.Schedule[0],
-                        Expect = new Domain.Participant[0],
-                        Arguments = new ParticipantClaim
+                        Expect = new P.Participation[0],
+                        Arguments = new P.ParticipantClaim
                         {
                             Schedule = Guid.NewGuid().ToString(),
                             Start = Rng.Next(),
@@ -130,7 +128,7 @@ namespace Test.Repository
                         }
                     };
                 case "AppointmentOnRecord":
-                    var knownClaim = new ParticipantClaim
+                    var knownClaim = new P.ParticipantClaim
                     {
                             Schedule = Guid.NewGuid().ToString(),
                             Start = Rng.Next(),
@@ -144,7 +142,7 @@ namespace Test.Repository
                         Name = SomeName()
                     };
 
-                    return new TestCase<Data.Schedule, ParticipantClaim, Domain.Participant[]>
+                    return new TestCase<Data.Schedule, P.ParticipantClaim, P.Participation[]>
                     {
                         Given = new []
                         {
@@ -177,12 +175,12 @@ namespace Test.Repository
                         },
                         Expect = new []
                         {
-                            new Domain.Participant
+                            new P.Participation
                             {
                                 SubjectId = knownClaim.SubjectId,
                                 Name = myName
                             },
-                            new Domain.Participant
+                            new P.Participation
                             {
                                 SubjectId = counterpart.SubjectId,
                                 Name = counterpart.Name

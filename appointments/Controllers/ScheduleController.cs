@@ -10,6 +10,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Logging;
 
+using S = Appointments.Domain.Schedule;
+
 namespace Appointments.Controllers
 {
     [Authorize]
@@ -22,63 +24,74 @@ namespace Appointments.Controllers
             .FirstOrDefault(c => c.Type == sub).Value;
 
         public ScheduleController(
-            IScheduleRepository repo,
+            S.IScheduleRepository repo,
             ILogger<ScheduleController> log)
         {
             _repo = repo;
             _log = log;
         }
 
-        IScheduleRepository _repo;
+        S.IScheduleRepository _repo;
         ILogger<ScheduleController> _log;
 
         [HttpPost]
         public async Task<IActionResult> CreateSchedule(
             Json.Schedule schedule)
         {
-            try 
-            {
-                var principalId = Guid.Parse(GetSubjectId);
-
-                await _repo.Add(new PrincipalClaim(
-                    principalId,
-                    schedule.Name
-                ));
-                _log.LogTrace($"{principalId} added schedule {schedule.Name}");
-
-                return Created(
-                    $"api/schedule/{schedule.Name}",
-                    new
-                {
-                    success = true,
-                    message = ""
-                });
-            }
-            catch (FormatException fmt)
-            {
-                _log.LogError($"Malformed sub-claim.", fmt);
-                return BadRequest();
-            }
-        }
-
-        [HttpDelete("{name}")]
-        public async Task<IActionResult> DeleteSchedule(string name)
-        {
             try
             {
-                var principalId = Guid.Parse(GetSubjectId);
+                var claim = new S.PrincipalClaim(
+                    Guid.Parse(GetSubjectId),
+                    schedule.Name
+                );
 
-                await _repo.Delete(new PrincipalClaim(
-                    principalId,
-                    name
-                ));
-                _log.LogTrace($"{principalId} deleted schedule {name}");
-                
-                return Ok();
+                var r = await _repo.Add(claim);
+                if (r == S.CreateScheduleResult.Created)
+                {
+                    _log.LogInformation(
+                    LoggingEvents.ScheduleCreated,
+                    "Schedule created with claim {claim}",
+                    claim
+                    );
+
+                    return Created(
+                        $"api/schedule/{schedule.Name}",
+                        new Json.Result
+                        {
+                            Success = true,
+                            Links = new []
+                            {
+                                new Json.Link
+                                {
+                                    Href = $"api/schedule/{schedule.Name}",
+                                    Ref = "self",
+                                    Type = "GET"
+                                }
+                            }
+                        });
+                }
+                else
+                {
+                    return Conflict(new Json.Result
+                    {
+                        Success = false,
+                        Message = "Already created.",
+                        Links = new []
+                        {
+                            new Json.Link
+                            {
+                                Href = $"api/schedule/{schedule.Name}",
+                                Ref = "self",
+                                Type = "GET"
+                            }
+                        }
+                    });
+                }
+
             }
             catch (FormatException fmt)
             {
-                _log.LogError($"Malformed sub-claim.", fmt);
+                _log.LogWarning($"Malformed sub-claim.", fmt);
                 return BadRequest();
             }
         }
@@ -91,9 +104,9 @@ namespace Appointments.Controllers
                 var principalId = Guid.Parse(GetSubjectId);
 
                 var r = await _repo.List(principalId);
-                return Ok(r.Select(x => new 
-                { 
-                    name = x.Schedule 
+                return Ok(r.Select(x => new
+                {
+                    name = x.Schedule
                 }));
             }
             catch (FormatException fmt)
@@ -109,14 +122,14 @@ namespace Appointments.Controllers
             try
             {
                 var principalId = Guid.Parse(GetSubjectId);
-                var r = await _repo.Get(new PrincipalClaim(
+                var r = await _repo.Get(new S.PrincipalClaim(
                     principalId,
                     name
                 ));
-                
-                return r != null 
-                    ? Ok(r.Select(x => new 
-                    { 
+
+                return r != null
+                    ? Ok(r.Select(x => new
+                    {
                         start = x.Start,
                         duration = x.Duration
                     })) as IActionResult
